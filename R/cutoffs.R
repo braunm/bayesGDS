@@ -27,6 +27,10 @@ get.cutoffs <- function(log.phi, n.draws) {
     j <- sample(1:M,n.draws,replace=TRUE,prob=p.int)
     
     u <- runif(n.draws)
+
+### SHOULD THIS BE ... INSTEAD?
+ ##    d <- as.numeric(v[j] - log(1-u + u*exp(-(v[j+1]-v[j]))))
+###
     d <- as.numeric(v[j] - log(1-u + u*exp(-v[j+1]))) ## draw from right-censored exponential
     
     return(d)
