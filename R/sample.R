@@ -68,7 +68,6 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
         stop("Error in sample.GDS:  all values in seed must be finite")
     }
     set.seed(seed)
-    
     v <- get.cutoffs(log.phi, n.draws)
     nvars <- length(post.mode)
     log.c1 <- fn.dens.post(post.mode, ...)
@@ -92,7 +91,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
             cat("thread ",thread.id,"  count ",count.idx,"  remaining draws = ",remaining.draws,"\n")
         }
         
-        x <- fn.draw.prop(remaining.draws, prop.params)
+        x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))
         dens.1 <- as.vector(apply(x,1,fn.dens.post,...))     
         dens.2 <- as.vector(fn.dens.prop(x,prop.params))
         crit <- dens.1-dens.2-log.c1+log.c2
