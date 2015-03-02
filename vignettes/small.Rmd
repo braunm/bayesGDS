@@ -1,0 +1,121 @@
+---
+title:  bayesGDS small test example
+author:  Michael Braun
+date:  "`r Sys.Date()`"
+output:
+  html_vignette:
+    toc:  false
+  pdf_vignette:
+    toc:  false	
+header-includes:
+  \usepackage{amsmath}
+vignette: >
+  %\VignetteIndexEntry{sparseHessian example}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+
+Initialization
+```{r}
+require(bayesGDS)
+require(mvtnorm)
+require(MCMCpack)
+set.seed(123)
+x <- rnorm(20, mean=100, sd=5)
+```
+Functions
+```{r}
+logL <- function(theta){
+    sum(dnorm(x, mean=theta[1], sd=exp(theta[2]), log=TRUE))
+}
+logPrior <- function(theta){
+    r1 <- dnorm(theta[1], mean=0, sd=1000, log=TRUE)
+    r2 <- dunif(exp(theta[2]), 0, 100, log=TRUE)
+    res <- r1 + r2 + theta[2]
+    return(res)
+}
+
+logPosterior <- function(theta){
+    logL(theta) + logPrior(theta)
+}
+
+## proposal functions
+logg <- function(theta, prop.params){
+    dmvnorm(theta,
+            mean=prop.params[[1]], sigma=prop.params[[2]],
+            log=TRUE)
+}
+
+draw.g <- function(N, prop.params){
+    rmvnorm(N, mean=prop.params[[1]], sigma=prop.params[[2]])
+}
+
+draw.MVN <- function(N, prop.params) {
+    rmvnorm(N, mean=prop.params[[1]],
+            sigma = prop.params[[2]]
+            )
+}
+
+```
+
+```{r}
+theta0 <- c( mean(x), log(sd(x)) )
+fit0 <- optim(theta0,
+              fn = function(th) {-logPosterior(th)},
+              hessian=TRUE
+              )
+
+theta.star <- fit0$par ## posterior mode
+H.star <- fit0$hessian
+H.star.inverse <- solve(fit0$hessian)
+log.c <- logPosterior(theta.star)
+
+```
+
+Proposal draws
+```{r}
+M <- 10000
+sSq <- 2.2 ## Smallest value such that q(1)=0 and all( logPhi < 0 ).  The value sSq=2.1 fails.
+log.k <- logg(theta.star, prop.params=list(theta.star, sSq*H.star.inverse))
+
+prop.params <- list(mean=theta.star,
+                    sigma = sSq*H.star.inverse
+                    )
+
+thetaM <- draw.MVN(M, prop.params)
+log.post.m <- apply(thetaM, 1, logPosterior)
+log.prop.m <- apply(thetaM, 1, logg, prop.params=prop.params)
+log.phi <- log.post.m - log.prop.m + log.k - log.c
+stopifnot(all(log.phi <= 0)) ## Should be = TRUE
+```
+
+## Should be ok to proceed
+```{r}
+draws <- sample.GDS(n.draws = 1000,
+                    log.phi = log.phi,
+                    post.mode = theta.star,
+                    fn.dens.post = logPosterior,
+                    fn.dens.prop = logg,
+                    fn.draw.prop = draw.MVN,
+                    prop.params = prop.params
+                    )
+```
+
+```{r, collapse=TRUE}
+print("Mean")
+print("Quantiles")
+print(quantile(draws$draws[,1], p=c(.5, .025, .975)))
+print("CI")
+print(mean(x) + c(0, -1, 1)*qt(.975, length(x)-1)*sd(x)/sqrt(length(x)))
+print("")
+print("Variance")
+print("Quantiles")
+print(quantile(exp(2*draws$draws[,2]), p=c(.5, .025, .975)))
+print("CI")
+print(var(x)*c(1, ( (length(x)-1)/qchisq(c(.975, .025), length(x)-1))))
+
+  ## Not the same prior, but still vague.  Results should be similar.
+fit.mcmc <- MCMCregress(x~(1), mcmc=10000)
+summary(fit.mcmc)
+```

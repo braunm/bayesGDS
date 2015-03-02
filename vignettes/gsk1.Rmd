@@ -1,0 +1,172 @@
+---
+title:  bayesGDS second test example
+author:  Michael Braun
+date:  "`r Sys.Date()`"
+output:
+  html_vignette:
+    toc:  false
+  pdf_vignette:
+    toc:  false	
+header-includes:
+  \usepackage{amsmath}
+vignette: >
+  %\VignetteIndexEntry{sparseHessian example}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+```{r, echo=FALSE}
+knitr::opts_chunk$set(fig.width=6, collapse=TRUE)
+```
+
+```{r}
+require(plyr)
+require(bayesGDS)
+require(dplyr)
+require(ggplot2)
+set.seed(123)
+theme_set(theme_bw())
+```
+```{r}
+## Data:  Generate twenty IID N(mean=100, sd=5) samples.
+x <- rnorm(20, mean=100, sd=5)
+nX <- length(x)
+n.draws <- 10000
+```
+
+Assume that the mean is known to be 100.  The unknown parameter is
+log(tau), where tau = precision parameter = 1/variance.  Parameter: theta = log(tau).  Thus, tau = exp(theta).  variance = exp(-theta).  standard deviation = exp(-0.5*theta).
+
+log-prior:  tau ~ gamma( shape=0.001, scale=1000 ) ( in WinBugs, this
+would be scale=0.001  ).  Because the parameter theta=log(tau), the
+pdf for theta is dgamma( exp(theta), shape=0.001, scale=1000
+)*exp(theta).  This is a very vague prior distribution.
+
+```{r}
+## log-likelihood function
+logL <- function(theta){
+    sum( dnorm(x, mean=100, sd=exp(-.5*theta), log=TRUE) )
+}
+
+logPrior <- function(theta){
+    dgamma(exp(theta), shape=0.001, scale=1000, log=TRUE) + theta
+}
+
+## Unnormalized log-posterior distribution function.
+logPosterior <- function(theta){
+    logL(theta) + logPrior(theta)
+}
+
+logg <- function(theta, params){
+    dnorm(theta, mean=params[[1]], sd=params[[2]], log=TRUE)
+}
+
+## Draw samples from the proposal distribution.
+draw.norm <- function(N, params){
+    rnorm(N, mean=params[[1]], sd=params[[2]])
+}
+
+```
+
+This problem has an analytical solution.  The posterior distribution for tau is given by
+
+```{r}
+tauPost.true <- rgamma(n.draws,
+                       shape=nX/2+0.001,
+                       scale=1000/(500*sum((x-100)^2)+1)
+                       )
+```
+
+## GDS method.
+Find the mode of the posterior
+```{r}
+
+theta0 <- log(1/var(x))
+fit0 <- optim( theta0,
+              function(th){ -logPosterior(th) },
+              method="BFGS",
+              hessian=TRUE )
+
+theta.star <- fit0$par       ## Posterior mode
+H.star <- as.vector(fit0$hessian)
+H.star.inverse <- 1/H.star   ## Inverse hessian of the posterior at the mode
+
+  ## Value of log-posterior at theta.star
+log.c <- logPosterior(theta.star)
+```
+Set M to be really big so that the error in the approximation is very
+small.
+Proposal distribution = N( mean=theta.star, sd=sqrt(
+sSq*H.star.inverse ) ), where sSq is the smallest value such that q(1)
+= 0 and all( logPhi < 0 ).  The value sSq = 1.9 works.  The value sSq
+= 1.8 fails.
+
+```{r}
+M <- 20000
+sSq <- 1.7
+
+prop.params <- list(mean=theta.star,
+                    sigma = sqrt(sSq*H.star.inverse)
+                    )
+
+  ## log-proposal distribution pdf
+
+  ## Value of log(g(theta.star))
+log.k <- logg(theta.star, params=prop.params)
+
+thetaM <- draw.norm(M, prop.params)
+log.post.m <- sapply(thetaM, logPosterior)
+log.prop.m <- sapply(thetaM, logg, params=list(theta.star, sqrt(sSq*H.star.inverse)))
+log.phi <- log.post.m - log.prop.m + log.k - log.c
+stopifnot(all(log.phi < 0)) ## Should be = TRUE
+```
+
+
+```{r}
+draws <- sample.GDS(n.draws = n.draws,
+                    log.phi = log.phi,
+                    post.mode = theta.star,
+                    fn.dens.post = logPosterior,
+                    fn.dens.prop = logg,
+                    fn.draw.prop = draw.norm,
+                    prop.params = prop.params
+                    )
+```
+
+Compare samples with true density.
+
+```{r}
+D <- data_frame(log.tau = draws$draws[,1])
+G <- data_frame(log.tau = seq(-5, -1, length=100),
+                y= dgamma(exp(log.tau),
+                    shape=nX/2+0.001,
+                    scale=1000/(500*sum((x-100)^2)+1))*exp(log.tau)
+           )
+P <- ggplot(D, aes(x=log.tau, y=..density..)) %>%
+    + geom_histogram(fill="white", color="black")  %>%
+        + geom_line(aes(x=log.tau, y=y), G, color="red")
+P
+```
+
+
+
+
+```{r}
+## Point estimate and 95% credible interval for the standard deviation using GDS method
+
+W <- data_frame(
+    gds = exp(-.5*draws$draws[,1]),
+    true = 1/sqrt(tauPost.true)
+)
+
+freq <- sd(x)*c(sqrt( (nX-1)/qchisq(c(.975,.5, .025), nX-1)))
+
+
+
+
+quants <- melt(cbind(apply(W,2, quantile, p=c(.025, .5, .975)), freq))
+colnames(quants) <- c("quantile","method","value")
+
+tab <- dcast(quants, method~quantile)
+
+knitr::kable(tab, digits=rep(3,4))
+```
