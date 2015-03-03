@@ -88,7 +88,8 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
     while((remaining.draws>0) & (count.idx <= max.tries)) {
 
         if ((count.idx %% report.freq) == 0) {
-            cat("thread ",thread.id,"  count ",count.idx,"  remaining draws = ",remaining.draws,"\n")
+            cat("thread ",thread.id,"  count ",count.idx,
+                "  remaining draws = ",remaining.draws,"\n")
         }
         
         x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))

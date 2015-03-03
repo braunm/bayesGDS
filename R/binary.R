@@ -12,17 +12,15 @@
 #' @param P Numeric vector of length (N+1)*k.  First N*k elements are heterogeneous coefficients. The remaining k elements are population parameters.
 #' @param data List of data matrices Y and X, and choice count integer T
 #' @param priors List of named matrices inv.Omega and inv.Sigma
-#' @param order.row Determines order of heterogeneous coefficients in
-#' parameter vector. Affects sparsity pattern of Hessian. See vignette. 
 #' @return Log posterior density, gradient and Hessian.
 #' @details Hessian is sparse, and returned as a dgcMatrix object
 #' @rdname binary
 #' @export
-binary.f <- function(P, data, priors, order.row=FALSE) {
+binary.f <- function(P, data, priors) {
 
     N <- length(data$Y)
     k <- NROW(data$X)
-    beta <- matrix(P[1:(N*k)], k, N, byrow=order.row)
+    beta <- matrix(P[1:(N*k)], k, N)
     mu <- P[(N*k+1):(N*k+k)]
     
     bx <- colSums(data$X * beta)
@@ -43,7 +41,7 @@ binary.f <- function(P, data, priors, order.row=FALSE) {
 
 #' @rdname binary
 #' @export
-binary.grad <- function(P, data, priors, order.row=FALSE) {
+binary.grad <- function(P, data, priors) {
 
     Y <- data$Y
     X <- data$X
@@ -51,15 +49,15 @@ binary.grad <- function(P, data, priors, order.row=FALSE) {
     inv.Sigma <- priors$inv.Sigma
     inv.Omega <- priors$inv.Omega
     
-  q1 <- .dlog.f.db(P, Y, X, T, inv.Omega, inv.Sigma, order.row=order.row)
-  q2 <- .dlog.f.dmu(P, Y, X, T, inv.Omega, inv.Sigma, order.row=order.row)
+  q1 <- .dlog.f.db(P, Y, X, T, inv.Omega, inv.Sigma)
+  q2 <- .dlog.f.dmu(P, Y, X, T, inv.Omega, inv.Sigma)
   res <- c(q1, q2)
   return(res)
 }
 
 #' @rdname binary
 #' @export
-binary.hess <- function(P, data, priors, order.row=FALSE) {
+binary.hess <- function(P, data, priors) {
 
     Y <- data$Y
     X <- data$X
@@ -71,37 +69,24 @@ binary.hess <- function(P, data, priors, order.row=FALSE) {
         
     SX <- Matrix(inv.Sigma)
     XO <- Matrix(inv.Omega)
-    B1 <- .d2.db(P, Y, X, T, SX, order.row)
+    B1 <- .d2.db(P, Y, X, T, SX)
     
-    if(order.row) {
-        pvec <- NULL
-        for (i in 1:N) {
-            pvec <- c(pvec, seq(i, i+(k-1)*N, length=k))
-        }
-        
-        pmat <- as(pvec, "pMatrix")
-        B2 <- Matrix::t(pmat) %*% B1 %*% pmat
-        cross <- .d2.cross(N, SX) %*% pmat      
-    } else {
-        B2 <- B1
-        cross <- .d2.cross(N, SX)
-    }
-    
+    cross <- .d2.cross(N, SX)    
     Bmu <- .d2.dmu(N,SX, XO)
-    res <- rBind(cBind(B2, Matrix::t(cross)),cBind(cross, Bmu))
+    res <- rBind(cBind(B1, Matrix::t(cross)),cBind(cross, Bmu))
     
     return(res)
 }
 
 
 
-.dlog.f.db <- function(P, Y, X, T, inv.Omega, inv.Sigma, order.row) {
+.dlog.f.db <- function(P, Y, X, T, inv.Omega, inv.Sigma) {
 
     N <- length(Y)
     k <- NROW(X)
     
     
-    beta <- matrix(P[1:(N*k)], k, N, byrow=order.row)
+    beta <- matrix(P[1:(N*k)], k, N)
     mu <- P[(N*k+1):length(P)]
     bx <- colSums(X * beta)
     
@@ -115,18 +100,17 @@ binary.hess <- function(P, data, priors, order.row=FALSE) {
     dprior <- -inv.Sigma %*% Bmu
     
     res <- t(dLL.db) + dprior
-    if (order.row) res <- t(res)
     
     return(as.vector(res))
     
 }
 
-.dlog.f.dmu <- function(P, Y, X, T, inv.Omega, inv.Sigma, order.row) {
+.dlog.f.dmu <- function(P, Y, X, T, inv.Omega, inv.Sigma) {
 
     N <- length(Y)
     k <- NROW(X)
     
-    beta <- matrix(P[1:(N*k)], k, N, byrow=order.row)
+    beta <- matrix(P[1:(N*k)], k, N)
     mu <- P[(N*k+1):length(P)]
     Bmu <- apply(beta, 2, "-", mu)
     
@@ -136,12 +120,12 @@ binary.hess <- function(P, data, priors, order.row=FALSE) {
 
 
 
-.d2.db <- function(P, Y, X, T, inv.Sigma, order.row) {
+.d2.db <- function(P, Y, X, T, inv.Sigma) {
 
     N <- length(Y)
     k <- NROW(X)
     
-    beta <- matrix(P[1:(N*k)], k, N, byrow=order.row)
+    beta <- matrix(P[1:(N*k)], k, N)
     mu <- P[(N*k+1):length(P)]
     ebx <- exp(colSums(X * beta))
     

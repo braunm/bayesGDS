@@ -18,7 +18,6 @@ vignette: >
 
 Initialization
 ```{r}
-require(bayesGDS)
 require(mvtnorm)
 require(MCMCpack)
 set.seed(123)
@@ -98,7 +97,8 @@ draws <- sample.GDS(n.draws = 1000,
                     fn.dens.post = logPosterior,
                     fn.dens.prop = logg,
                     fn.draw.prop = draw.MVN,
-                    prop.params = prop.params
+                    prop.params = prop.params,
+                    announce=FALSE
                     )
 ```
 

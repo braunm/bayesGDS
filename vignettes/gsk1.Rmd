@@ -19,8 +19,8 @@ knitr::opts_chunk$set(fig.width=6, collapse=TRUE)
 ```
 
 ```{r}
+require(reshape2)
 require(plyr)
-require(bayesGDS)
 require(dplyr)
 require(ggplot2)
 set.seed(123)

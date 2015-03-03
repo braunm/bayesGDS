@@ -1,0 +1,370 @@
+---
+title: Using bayesGDS for Braun-Damien Scalable Rejection Sampling
+author:  Michael Braun
+date:  "`r Sys.Date()`"
+output:  rmarkdown::html_vignette
+bibliography:  bayesGDS.bib
+vignette: >
+  %\VignetteIndexEntry{Hierarchical model}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup1, echo = FALSE}
+knitr::opts_chunk$set(collapse = FALSE, comment = "#", message=FALSE)
+```
+
+This vignette is meant to be a somewhat complete illustration of
+practical use of the scalable rejection sampling algorithm.  It is not
+the "simplest" example, because we want to show many of the tools that
+one might want to use.
+
+This document assumes that the reader has read @BraunDamien2015.
+
+
+# Example function
+
+Before going into the details of how to use the package, let's
+consider the following example of a log posterior density function with a sparse Hessian.
+ Suppose we have a dataset of $N$ households, each with $T$ opportunities to purchase a particular product.  Let $y_i$ be the number of times household $i$ purchases the product, out of the $T$ purchase opportunities.  Furthermore, let $p_i$ be the probability of purchase; $p_i$ is the same for all $T$ opportunities, so we can treat $y_i$ as a binomial random variable.  The purchase probability $p_i$ is heterogeneous, and depends on both $k$ continuous covariates $x_i$, and a heterogeneous coefficient vector $\beta_i$, such that
+$$
+  p_i=\frac{\exp(x_i'\beta_i)}{1+\exp(x_i'\beta_i)},~i=1 ... N
+$$
+
+The coefficients can be thought of as sensitivities to the covariates, and they are distributed across the population of households following a multivariate normal distribution with mean $\mu$ and covariance $\Sigma$.   We assume that we know $\Sigma$, but we do not know $\mu$.  Instead, we place a multivariate normal prior on $\mu$, with mean $0$ and covariance $\Omega_0$.  Thus, each $\beta_i$, and $\mu$ are $k-$dimensional vectors, and the total number of unknown variables in the model is $(N+1)k$. 
+
+The log posterior density, ignoring any normalization constants, is
+$$
+  \log \pi(\beta_{1:N},\mu|Y, X, \Sigma_0,\Omega_0)=\sum_{i=1}^Np_i^{y_i}(1-p_i)^{T-y_i}
+  -\frac{1}{2}\left(\beta_i-\mu\right)'\Sigma^{-1}\left(\beta_i-\mu\right)
+-\frac{1}{2}\mu'\Omega_0^{-1}\mu
+$$
+
+
+## Sparsity
+
+At this point, we take a slight detour to discuss the role of sparsity
+in the efficient implementation of the algorithm.  In this example, we
+make the assumption of **conditional independence**.
+
+```{r setup2, echo=FALSE}
+require(Matrix)
+require(trustOptim)
+NN <- 6
+kk <- 2
+nv1 <- (NN+1)*kk
+nels1 <- nv1^2
+nnz1 <- (NN+1)*kk^2 + 2*NN*kk^2
+nnz1LT <- (NN+1)*kk*(kk+1)/2 + NN*kk^2
+Q <- 1000
+nv2 <- (Q+1)*kk
+nels2 <- nv2^2
+nnz2 <- (Q+1)*kk^2 + 2*Q*kk^2
+nnz2LT <- (Q+1)*kk*(kk+1)/2 + Q*kk^2
+```
+
+Since the $\beta_i$ are sampled iid,
+$\dfrac{\partial^2\log\pi }{\partial\beta_i\beta_j}=0$ for all $i\neq
+j$.  We also know that all of the $\beta_i$ are correlated with
+$\mu$.  The structure of the Hessian depends on how the variables are
+ordered within the vector. One such ordering is to group all of the
+coefficients for each unit together.
+
+$$
+\beta_{11},...,\beta_{1k},\beta_{21},...,\beta_{2k},...~,~...~,~\beta_{N1}~,~...~,~\beta_{Nk},\mu_1,...,\mu_k
+$$
+
+In this case, the Hessian has a "block-arrow" structure.  For example,
+if $N=`r NN`$ and $k=`r kk`$, then there are `r nv1` total variables, and the Hessian will have the following pattern.
+
+```{r pattern, echo=FALSE}
+MM <- as(kronecker(diag(NN),matrix(1,kk,kk)),"lMatrix")
+MM <- rBind(M, Matrix(TRUE,kk,NN*kk))
+MM <- cBind(M, Matrix(TRUE, kk*(NN+1), kk))
+print(MM)
+```
+
+There are `r nels1` elements in this symmetric matrix, but only  `r nnz1` are
+non-zero, and only `r nnz1LT` values are unique.  Although the reduction in
+RAM from using a sparse matrix structure for the Hessian may be
+modest, consider what would happen if $N=`r Q`$ instead.  In that case,
+there are `r nv2` variables in the problem, and more than $`r 
+floor(nels2/10^6)`$ million
+elements in the Hessian.  However, only $`r nnz2`$ of those elements are
+non-zero.  If we work with only the lower triangle of the Hessian we only need to work with
+only `r nnz2LT` values.
+
+
+## Sample data
+
+
+The package includes a simulated dataset for $N$ households and $k$
+covariates per household.  The function `binary.f` returns the log
+posterior density of this model, evaluated at the vector passed as the
+first argument.  This function takes two additional named arguements,
+`data` and `priors`.  These two arguments are specific to this
+example; in general, no additional arguments are required.
+
+In the next code chunk, we load the simulated data, construct the
+priors as a named list (again, these names are specific to the
+example), simulate a sample vector of variables, and evaluate the log
+posterior density.
+
+```{r data, collapse=TRUE}
+data(binary)
+N <- length(binary$Y)
+k <- NROW(binary$X)
+nvars <- as.integer(N*k + k)
+priors <- list(inv.Sigma = rWishart(1,k+5,diag(k))[,,1],
+               inv.Omega = diag(k))
+start <- rnorm(nvars) ## random starting values
+f <- binary.f(start, data=binary, priors=priors)
+f
+```
+
+Strictly speaking, the algorithm requies only the function that
+returns the log posterior density.  However, as we will see below, it
+makes a lot of sense to write functions to return the gradient and
+Hessian as well.  These functions take the same arguments as the log
+posterior density.  For this example, the gradient is returned by
+`binary.grad` and the hessian is returned by `binary.hess`.
+
+## Using sparseHessianFD
+
+The `binary.grad` function is reasonably efficient at returning the
+gradient, but `binary.hess` takes a long time to run for large
+datasets (this has to do with a loop that I have not figured out how
+to avoid).  We can speed up the computation of the Hessian, with a
+small sacrifice of numerical accuracy, using the sparseHessianFD
+package.
+
+To use the sparseHessianFD package, we need to create an object of the
+sparseHessianFD class.  To do this, we provide the log posterior and
+gradient functions (along with any additional named arguments), and
+the sparsity pattern of the Hessian (the row and column indicies of
+the non-zero elements of the lower triangle).  The fastest way to get
+the sparsity pattern is to compute the Hessian once, and drop all
+elements that are either in the upper triangle, or will always be
+zero, regardless of the variable at which the Hessian is computed.
+The `Matrix.to.Coord` function in the sparseHessianFD package will
+convert this sparse, lower-triangular matrix into a list of row and
+column indices.  See the documentation for the **sparseHessianFD**
+package for more details.
+
+```{r sparseHessianFD}
+
+require(sparseHessianFD)
+hs <- drop0(tril(binary.hess(start, data=binary, priors=priors)))
+hsNZ <- Matrix.to.Coord(hs)
+FD <- sparseHessianFD.new(start, binary.f, binary.grad,
+                          rows=hsNZ$rows, cols=hsNZ$cols,
+                          data=binary, priors=priors)
+```
+
+One advantage to using the sparseHessianFD class is that the
+additional arguments are stored within the object.  The class also
+contains member functions to return the objective function, gradient
+and Hessian.  These member functions take only one argument, the
+variable vector.  This means that we do not need to repeatedly pass
+the data and prior arguments.  So now, we can compute the log
+posterior density, gradient and Hessian as follows:
+
+```{r using FD}
+f <- FD$fn(start)
+df <- FD$gr(start)
+hess <- FD$hessian(start)
+```
+
+# Finding posterior mode
+
+The **trustOptim** package provides a function for unconstrained
+nonlinear optimization that has a few advantages over other optimizers
+that are available for R.
+
+1.  It uses a "trust region" algorithm, that may be more stable for
+    certain types of objective functions, especially those that are
+	poorly conditioned, or have regions that are nearly flat.   	
+	
+2.  The user can accelerate the optimization routine by providing a function that returns the Hessian as a sparse object.
+
+3.  The stopping rule is based on the norm of the gradient, and not
+    whether the optimization is making "sufficient progress."  This
+    means that the optimizer is less like to halt at a value at which
+    the gradient is not really flat.
+
+The documentation for the *trustOptim* package provides much more
+detail about the algorithm, and the arguments to the `trust.optim`
+function.  For this example, we use the member functions of the FD
+object to return the log posterior density, gradient and Hessian.  We
+do not need to provide `data` and `priors`, since those are already
+stored in FD.
+
+
+```{r trustOptim}
+print("Finding posterior mode")
+opt <- trust.optim(start, fn=FD$fn,
+                   gr = FD$gr,
+                   hs = FD$hessian,
+                   method = "Sparse",
+                   control = list(
+                       start.trust.radius=5,
+                       stop.trust.radius = 1e-7,
+                       prec=1e-7,
+                       report.precision=1L,
+                       maxit=500L,
+                       preconditioner=1L,
+                       function.scale.factor=-1
+                   )
+                   )
+
+post.mode <- opt$solution
+hess <- opt$hessian
+var.names <- names(post.mode)
+```
+
+
+
+# Using the package
+
+The functions for computing the objective function, gradient and
+Hessian for this example are in the R/binary.R file.  The package
+also includes a sample dataset with simulated data from the binary
+choice example. This dataset can be access with the `data(binary)` call.
+
+
+## Loading sample data and setting priors
+
+To start, we load the data, set some dimension parameters, set prior
+values for $\Sigma^{-1}$ and $\Omega^{-1}$, and simulate a
+vector of variables at which to evaluate the function.
+
+```{r dataPriors}
+
+library(doParallel)
+run.par <- TRUE
+if(run.par) registerDoParallel(cores=12) else registerDoParallel(cores=1)
+
+seed.id <- 123
+set.seed(seed.id)
+```
+
+
+This dataset represents the simulated choices for $N= `r N`$ customers
+over $T= `r binary$T`$ purchase opportunties, where the probability of purchase
+is influenced by $k= `r k`$ covariates.
+
+
+
+Proposal functions
+
+```{r defPropFuncs}
+require(sparseMVN)
+rmvn.sparse.wrap <- function(n.draws, params) {
+## sample MVN with sparse precision matrix
+
+    res <- rmvn.sparse(n.draws, params$mean, params$CH, prec=TRUE)
+    return(res)
+}
+
+dmvn.sparse.wrap <- function(d, params) {
+## MVN density with sparse precision
+
+    res <- dmvn.sparse(d, params$mean, params$CH, prec=TRUE)
+    return(res)
+}
+```
+
+
+```{r drawProps}
+n.draws <- 10  ## total number of draws needed
+M <- 10000  ## proposal draws
+max.tries <- 100000  ## to keep sample.GDS from running forever
+ds.scale <- .97  ## scaling factor for proposal density
+
+chol.hess <- Cholesky(-ds.scale*hess)
+
+prop.params <- list(mean = post.mode,
+                    CH = chol.hess
+                    )
+
+log.c1 <- opt$fval
+log.c2 <- dmvn.sparse.wrap(post.mode, prop.params)
+
+cat("Collecting GDS Proposal Draws\n")
+draws.m <- as(rmvn.sparse.wrap(M,prop.params),"matrix")
+log.post.m <- plyr::aaply(draws.m, 1, FD$fn, .parallel=run.par)
+log.prop.m <- dmvn.sparse.wrap(draws.m, params=prop.params)
+log.phi <- log.post.m - log.prop.m +log.c2 - log.c1
+
+
+invalid.scale <- any(log.phi>0)
+cat("Are any log.phi > 0?  ",invalid.scale,"\n")
+```
+
+```{r sampleGDS}
+## if invalid.scale is TRUE, need to change
+## the proposal density
+
+
+if (!invalid.scale) {
+    
+    cat("Generating DS draws - accept-reject phase\n")
+
+    if (run.par) {
+        batch.size <- 1
+        n.batch <- floor(n.draws / batch.size)
+        draws.list <- foreach(i=1:n.batch, .inorder=FALSE) %dopar% sample.GDS(
+                                               n.draws = n.draws,
+                                               log.phi = log.phi,
+                                               post.mode = post.mode,
+                                               fn.dens.post = FD$fn,
+                                               fn.dens.prop = dmvn.sparse.wrap,
+                                               fn.draw.prop = rmvn.sparse.wrap,
+                                               prop.params = prop.params,
+                                               report.freq = 50,
+                                               thread.id = i,
+                                               announce=TRUE,
+                                               seed=as.integer(seed.id*i))
+        
+        
+        draws <- Reduce(function(x,y) Map(rbind,x,y), draws.list)
+    } else {
+        
+        draws <- sample.GDS(n.draws = n.draws,
+                            log.phi = log.phi,
+                            post.mode = post.mode,
+                            fn.dens.post = FD$fn,
+                            fn.dens.prop = dmvn.sparse.wrap,
+                            fn.draw.prop = rmvn.sparse.wrap,
+                            prop.params = prop.params,
+                            report.freq = 50,
+                            thread.id = 1,
+                            announce=TRUE)
+    }
+
+    
+    if (any(is.na(draws$counts))) {
+        LML <- NA
+    } else {
+        LML <- get.LML(counts=draws$counts,
+                       log.phi=log.phi,
+                       post.mode=post.mode,
+                       fn.dens.post= FD$fn,
+                       fn.dens.prop=dmvn.sparse.wrap,
+                       prop.params=prop.params)
+    }
+    ## Section H:  Compute log marginal likelihood
+    
+    acc.rate <- 1/mean(draws$counts)
+    
+    dimnames(draws$draws) <- list(iteration=1:NROW(draws$draws),
+                                  variable=var.names)
+        
+    draws$LML <- LML
+    draws$acc.rate <- acc.rate    
+}
+
+```
+
+
+# References
