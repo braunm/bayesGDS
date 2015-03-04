@@ -93,8 +93,10 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
         }
         
         x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))
-        dens.1 <- as.vector(apply(x,1,fn.dens.post,...))     
-        dens.2 <- as.vector(fn.dens.prop(x,prop.params))
+        dens.1 <- apply(x,1,fn.dens.post,...)
+        dens.1 <- as.vector(dens.1)
+        dens.2 <- fn.dens.prop(x,prop.params)
+        dens.2 <- as.vector(dens.2)
         crit <- dens.1-dens.2-log.c1+log.c2
         ww <- which(-v < crit)
         n.keep <- length(ww)

@@ -21,17 +21,12 @@ get.cutoffs <- function(log.phi, n.draws) {
     M <- length(log.phi)
     v <- c(-log.phi[order(log.phi,decreasing=TRUE)],Inf)
     v1 <- min(v)
-    
-    p.int <- as.numeric(exp(log(seq(1,M)) -v1 + log(exp(v1-v[1:M]) - exp(v1-v[2:(M+1)]))))
-    
+    p.int <- as.numeric(exp(log(seq(1,M)) -v1
+                            + log(exp(v1-v[1:M]) - exp(v1-v[2:(M+1)]))))    
     j <- sample(1:M,n.draws,replace=TRUE,prob=p.int)
-    
     u <- runif(n.draws)
+    d <- as.numeric(v[j] - log(1-u + u*exp(-(v[j+1]-v[j]))))
 
-
-     d <- as.numeric(v[j] - log(1-u + u*exp(-(v[j+1]-v[j]))))
-
-   ## d <- as.numeric(v[j] - log(1-u + u*exp(-v[j+1]))) ## draw from right-censored exponential
     
     return(d)
 }
