@@ -14,10 +14,12 @@ vignette: >
 knitr::opts_chunk$set(collapse = FALSE, comment = "#", message=FALSE)
 ```
 
-A researcher can realize the greatest advantage of using the
-@BraunDamien2015 method when estimating posterior distributions of
-hierarchical models.  In this note, we present an example of such a
-model, and explain how to estimate it.  The topics are:
+The `bayesGDS` package provides tools to sample from any posterior
+distribution, under some general conditions.  Relative to other
+sampling methods (e.g., MCMC), this method is most useful for
+hierarchical models, with conditional independence across
+heterogeneous units.  This note describes how to implement the
+sampling algorithm using a number of different R packages.
 
 1.  Estimating a sparse Hessian using the *sparseHessianFD* package
 2.  Finding the posterior mode using the *trustOptim* package
@@ -25,8 +27,12 @@ model, and explain how to estimate it.  The topics are:
 normal (MVN) distribution, using the *sparseMVN* package.
 4.  Running the @BraunDamien2015 algorithm with the *bayesGDS* package
 
+None of these packages is strictly necessary to use the algorithm.
+However, they were developed with the algorithm in mind, and are
+designed to make model estimation simpler and faster.
 
-This document assumes that the reader has read @BraunDamien2015.
+This document assumes that the reader has read @BraunDamien2015, and
+is familiar with the underlying algorithm.
 
 
 # Preliminaries
@@ -40,7 +46,9 @@ $$
 $$
 where $\mathcal{D}(\theta,y)$ is the joint
 density of the data and the parameters (of the unnormalized posterior
-density).  Under the conditional
+density).
+
+Under the conditional
 independence assumption, the likelihood can be factored as
 $$
 f(y|\theta)=\prod_{i=1}^Nf_i\left(y_i|\beta_i,\alpha\right)
@@ -58,7 +66,72 @@ $$
 \pi(\theta)=\prod_{i=1}^N\pi_i(\beta_i|\alpha)\times\pi(\alpha).
 $$
 
+## Nonlinear optimization
+
+Many researchers' initial reaction to the sampling algorithm is that
+the task of finding the posterior mode of the LMD is easier said than
+done. This view is certainly true if it is informed by previous
+experience with the standard optimization algorithms in R (e.g., the
+`optim` function).  There are two characteristics of these algorithms
+that can cause problems:
+
+1.  The stopping rule of `optim` is based on whether the optimizer is
+    making "sufficient" progress, in either the value of the
+    objective function, or in the values of the optimization
+    variables.  Neither of these are appropriate conditions for having
+    found a local optimum in unconstrained problems.  Instead, the
+    algorithm should not stop until the derivative is zero, at least
+    up to machine precision. 
+
+2.  The default optimization method in `optim` is a derivative-free
+    search algorithm known as "Nelder-Mead."  When the search for
+    variables that improve the objective function is conducted in a
+    large number of directions, the time to converge can be quite
+    high.  The `optim` function provides some derivative-based
+    algorithms that use successive estimates of the gradient to
+    approximate the curvature of the objecvtive function, such as
+    quasi-Newton (BFGS), conjugate gradient (CG), and limited-memory
+    BFGS. BFGS gives the most "complete" estimate of the Hessian, but
+    needs to store that approximation in a matrix that grows
+    quadratically with the number of variables.  CG and L-BFGS are more
+    suited for large-scale problems, but depend on the accuracy of the
+    Hessian approximation for rapid convergence to the local optimum.
+
+To facilitate fast convergence to the posterior mode, we should prefer
+an algorithm that uses exact calculations of the gradient and Hessian,
+remains scalable for large problems, stops only when the norm of the
+gradient is numerically zero, and is stable when passing through
+regions in which the LPD surface is flat.  The `trust.optim` function
+in the **trustOptim** package meets those criteria.  To use
+`trust.optim`, the user must provide R functions that return the LPD
+and its gradient.  To use an algorithm that is scalable for problems
+with sparse Hessians, the user must also provide a function that
+returns the Hessian as a `dgCMatrix` object (a compressed sparse
+matrix format defined in the Matrix package).  Details about the
+underlying algorithm are available in @R_trustOptim.
+
+
+## Computing gradients and Hessians
+
+It is true that to use the `trust.optim` function, you need to provide
+the gradient to the objective function.  Usually, this means deriving
+the gradient analytically.  An alternative is _algorithmic
+differention (AD)_, which is discussed in more detail below.  We do
+not recommend numerical approximation of the gradient using finite
+differences.  While those approximations may be nearly good enough,
+they cannot be combined with finite difference approximation for the
+Hessian, which we do want to consider using.
+
+
 ## Sparse Hessians
+
+The sampling algorithm is not scalable when the curvature of the LPD
+is represented by a full, dense Hessian matrix. The Hessian grows
+quadratically with the number of variables, which increases the amount
+of memory needed to store it, and the number of computational cycles
+needed to work with it.  This problem appears not only in the
+mode-finding step, but also in sampling from, and computing the
+density of, a high-dimensional MVN proposal distribution.
 
 The mathematical implication of the conditional independence
 assumption is that the cross-partial derivatives
@@ -97,8 +170,8 @@ if $N=`r NN`$ and $k=`r kk`$, then there are `r nv1` total variables, and the He
 
 ```{r pattern, echo=FALSE}
 MM <- as(kronecker(diag(NN),matrix(1,kk,kk)),"lMatrix")
-MM <- rBind(M, Matrix(TRUE,kk,NN*kk))
-MM <- cBind(M, Matrix(TRUE, kk*(NN+1), kk))
+MM <- rBind(MM, Matrix(TRUE,kk,NN*kk))
+MM <- cBind(MM, Matrix(TRUE, kk*(NN+1), kk))
 print(MM)
 ```
 
@@ -111,9 +184,9 @@ $$
 Now the Hessian has an "off-diagonal" sparsity pattern.
 
 ```{r, echo=FALSE}
-M <- as(kronecker(matrix(1,k,k), diag(N)),"lMatrix")
-M <- rBind(M, Matrix(TRUE,k,N*k))
-M <- cBind(M, Matrix(TRUE, k*(N+1), k))
+MM <- as(kronecker(matrix(1,kk,kk), diag(NN)),"lMatrix")
+MM <- rBind(MM, Matrix(TRUE,kk,NN*kk))
+MM <- cBind(MM, Matrix(TRUE, kk*(NN+1), kk))
 print(M)
 ```
 
@@ -126,6 +199,12 @@ floor(nels2/10^6)`$ million
 elements in the Hessian.  However, only $`r nnz2`$ of those elements are
 non-zero.  If we work with only the lower triangle of the Hessian we only need to work with
 only `r nnz2LT` values.
+
+
+### Why gradients and Hessians matter
+
+
+
 
 
 ## Specifying the model for R
