@@ -11,7 +11,7 @@
 #----setup2
 require(Matrix)
 require(trustOptim)
-print("setup2")
+
 NN <- 6
 kk <- 2
 pp <- 2
@@ -63,7 +63,7 @@ f
 df <- binary.grad(start, data=binary, priors=priors)
 str(df)
 d2f <- binary.hess(start, data=binary, priors=priors)	
-
+print(d2f[1:6,1:6], digits=3)
 
 
 #----hessStruct
@@ -87,23 +87,18 @@ hess <- FD$hessian(start)
 
 
 #----hessUpperLeft
-hess[1:9,1:9]
+print(hess[1:9,1:9], digits=3)
 
 
 #----trustOptim
-opt <- trust.optim(start, fn=FD$fn,
-                   gr = FD$gr,
-                   hs = FD$hessian,
+opt <- trust.optim(start, fn=FD$fn, gr = FD$gr, hs = FD$hessian,
                    method = "Sparse",
                    control = list(
-                       start.trust.radius=5,
-                       stop.trust.radius = 1e-7,
-                       prec=1e-7,
-                       report.precision=1L,
-                       maxit=500L,
-                       preconditioner=1L,
+                       start.trust.radius=5, stop.trust.radius = 1e-7,
+                       prec=1e-7, report.precision=1,
+                       maxit=500, preconditioner=1,
                        function.scale.factor=-1
-                   )
+                       )
                    )
 
 post.mode <- opt$solution
@@ -133,11 +128,7 @@ dmvn.sparse.wrap <- function(d, params) {
 #----propParams
 scale <- .96
 chol.hess <- Cholesky(-scale*hess)
-prop.params <- list(mean = post.mode,
-                    CH = chol.hess
-                    )
-
-
+prop.params <- list(mean = post.mode, CH = chol.hess)
 
 #----parallelSetup
 
@@ -194,16 +185,12 @@ if (!invalid.scale) {
         draws <- Reduce(function(x,y) Map(rbind,x,y), draws.list)
     } else {
         ## single core
-        draws <- sample.GDS(n.draws = n.draws,
-                            log.phi = log.phi,
-                            post.mode = post.mode,
-                            fn.dens.post = FD$fn,
+        draws <- sample.GDS(n.draws = n.draws, log.phi = log.phi,
+                            post.mode = post.mode,   fn.dens.post = FD$fn,
                             fn.dens.prop = dmvn.sparse.wrap,
                             fn.draw.prop = rmvn.sparse.wrap,
                             prop.params = prop.params,
-                            report.freq = 50,
-                            thread.id = 1,
-                            announce=TRUE)
+                            report.freq = 50, thread.id = 1, announce=TRUE)
     }
 }
 

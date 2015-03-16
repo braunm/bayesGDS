@@ -1,5 +1,9 @@
 \documentclass{article}
 
+
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Scalable estimation of hierarchical models}
+
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{mathpazo}
@@ -7,11 +11,17 @@
 \usepackage{amsfonts}
 \usepackage{geometry}
 \usepackage{placeins} %% for \FloatBarrier
+\usepackage{subcaption}
 
 \usepackage{algorithm}
 \usepackage{algorithmic}
 
 \usepackage{parskip}
+\usepackage{setspace}
+\linespread{1.2}
+
+%%make knitr environment line spacing separate from LaTeX
+\renewenvironment{knitrout}{\begin{singlespace}}{\end{singlespace}}
 
 
 
@@ -19,26 +29,22 @@
 \DeclareMathOperator\Chol{Chol }
 \DeclareMathOperator\cov{cov}
 
-\newcommand{\pkg}[1]{\textit{#1}}
+\newcommand{\pkg}[1]{\textbf{#1}}
 \newcommand{\proglang}[1]{\textsf{#1}}
 \newcommand{\func}[1]{\texttt{#1}}
 \newcommand{\class}[1]{\texttt{#1}}
 \newcommand{\funcarg}[1]{\texttt{#1}}
-\newcommand{\filename}[1]{\texttt{#1}}
+\newcommand{\filename}[1]{\textit{#1}}
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\variable}[1]{\texttt{#1}}
+\newcommand{\method}[1]{\textbf{#1}}
 
-\newcommand{\Like}{f(y|\theta)}
  \newcommand{\Prior}{\pi(\theta)}
  \newcommand{\Post}{\pi(\theta|y)}
- \newcommand{\LikePrior}{f(y|\theta)\pi(\theta)}
  \newcommand{\Gtheta}{g(\theta)}
  \newcommand{\Phitheta}{\Phi(\theta|y)}
  \newcommand{\Ly}{\mathcal{L}(y)}
  \newcommand{\Dy}{\mathcal{D}(\theta,y)}
-
-
-\linespread{1.2}
 
 
 \usepackage[style=authoryear,%
@@ -110,10 +116,10 @@
 \begin{document}
 
 <<<setup1, echo=FALSE, cache=FALSE>>=
-knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#", message=FALSE) #
+knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#",
+                           message=FALSE, tidy=FALSE) #
 knitr::read_chunk("binary_chunks.R")
 @ 
-
 
 
 \citet{BraunDamien2014}, henceforth known as BD, introduce a method of
@@ -304,7 +310,7 @@ of elements in the Hessian matrix increases quadratically, but the
 number of \emph{non-zero} elements increases only linearly.  Thus, the
 Hessian becomes sparser as the data set gets larger.
 
-<<setup2>>=
+<<setup2, echo=FALSE>>=
 @ 
 
 
@@ -321,20 +327,35 @@ coefficients for each unit together.
 \end{align}
 
 In this case, the Hessian has a "block-arrow" structure.  For example,
-if $N=\Sexpr{NN}$, $k=\Sexpr{kk}$, and $p=\Sexpr{pp}$, then there are \Sexpr{nv1} total variables, and the Hessian will have the following pattern.
+if $N=\Sexpr{NN}$, $k=\Sexpr{kk}$, and $p=\Sexpr{pp}$, then there are
+\Sexpr{nv1} total variables, and the Hessian will have the sparsity
+pattern in Figure \ref{fig:pattern1}.
 
+\begin{figure}
+  \begin{subfigure}[t]{.5\linewidth}
 <<pattern1, echo=FALSE>>==
 @ 
+\caption{A ``block-arrow'' sparsity pattern}\label{fig:pattern1}
+\end{subfigure}
+\begin{subfigure}[t]{.5\linewidth}
+<<pattern2, echo=FALSE>>=
+@
+\caption{An ``off-diagonal'' sparsity pattern.}\label{fig:pattern2}
+\end{subfigure}
+\caption{Examples of sparsity patterns for a hierarchical model.  The
+  pattern depends on the ordering of the coefficients. The
+  \class{lgCMatrix} class is defined in the \pkg{Matrix} package.}
+\end{figure}
+
+
 
 Another option for arranging the coefficients is to group them by covariate.
 \begin{align}
 \beta_{11},...,\beta_{1N},\beta_{21},...,\beta_{2N},...,...,\beta_{k1},...,\beta_{kN},\mu_1,...,\mu_p
 \end{align}
 
-Now the Hessian has an "off-diagonal" sparsity pattern.
+Now the Hessian has an "off-diagonal" sparsity pattern, as in Figure \ref{fig:pattern2}.
 
-<<pattern2, echo=FALSE>>=
-@
 
 In both cases, the number of non-zeros is the same.  There are
 \Sexpr{nels1} elements in this symmetric matrix, but only  \Sexpr{nnz1} are
@@ -355,6 +376,8 @@ parts of the algorithm, such as finding the posterior mode, and
 sampling from a multivariable normal (MVN) proposal distribution.
 
 
+\FloatBarrier
+
 \subsection{Computing derivatives}
 
 Functions that return the gradient and Hessian of the LPD can be
@@ -373,10 +396,10 @@ way of applying the chain rule through the same sequence of operations
 that computes the LPD.  There are a number of different approaches to
 implementing AD, such as using a software library of specialized
 numerical types and operations.  While AD libraries are available for
-Matlab, Python, C++ and Fortran, there are none for R that are
+\proglang{Matlab}, \proglang{Python}, \proglang{C++} and \proglang{Fortran}, there are none for R that are
 well-suited for a general class of Bayesian hierarchical models.  For
-R users, we believe that coding the LPD in C++ using the ADOL-C or
-CppAD libraries, and interfacing with R using Rcpp, is the best option
+\proglang{R} users, we believe that coding the LPD in \proglang{C++} using the \pkg{ADOL-C} or
+\pkg{CppAD} libraries, and interfacing with \proglang{R} using \pkg{Rcpp}, is the best option
 at the moment.  How to do this will be the subject of a future
 vignette.
 
@@ -401,7 +424,7 @@ gradient depends on how the gradient function is implemented.
 
 Deriving a Hessian analytically can be even more tedious and
 error-prone than deriving a gradient, so AD is the preferred method.
-Both CppAD and ADOL-C can return a sparse Hessian in a compressed
+Both \pkg{CppAD} and \pkg{ADOL-C} can return a sparse Hessian in a compressed
 format.
 
 If using AD to compute the Hessian is not an option, one can use
@@ -453,16 +476,16 @@ that can cause problems:
     up to machine precision. 
 
 2.  The default optimization method in \func{optim} is a derivative-free
-    search algorithm known as "Nelder-Mead."  When the search for
+    search algorithm known as ``Nelder-Mead."  When the search for
     variables that improve the objective function is conducted in a
     large number of directions, the time to converge can be quite
     high.  The \func{optim} function provides some derivative-based
     algorithms that use successive estimates of the gradient to
     approximate the curvature of the objecvtive function, such as
-    quasi-Newton (BFGS), conjugate gradient (CG), and limited-memory
-    BFGS. BFGS gives the most "complete" estimate of the Hessian, but
+    quasi-Newton (\method{BFGS}), conjugate gradient (\method{CG}), and limited-memory
+    \method{BFGS}. \method{BFGS} gives the most "complete" estimate of the Hessian, but
     needs to store that approximation in a matrix that grows
-    quadratically with the number of variables.  CG and L-BFGS are more
+    quadratically with the number of variables.  \method{CG} and \method{L-BFGS} are more
     suited for large-scale problems, but depend on the accuracy of the
     Hessian approximation for rapid convergence to the local optimum.
 
@@ -606,19 +629,19 @@ source code.
 So let's evaluate the LPD at a random "starting value."
 
 
-<<StartingVals>>=
+<<startingVals>>=
 @ 
 
 \subsubsection{Using sparseHessianFD}
 
-In practice, it is probably that you will not have a function
+In practice, it is likely that you will not have a function
 available that returns the Hessian (that is, there would be no
-\func{binary.hess} function). Fortunately, hierarchical models
+equivalent to \func{binary.hess}). Fortunately, hierarchical models
 have Hessians with a predictable sparsity pattern.  You could write a
 short code snippet that returns the row and column indices for your
 particular problem.  Solely for the purposes of this example, we will
 use the \func{binary.hess} function to compute the Hessian, and then
-extract the sparsity pattern using the \func{Matrix.to.Coord} function in
+extract the sparsity pattern using the \func{Matrix.to.Coord} function from
 the \pkg{sparseHessianFD} package.  The \func{tril} function sets all elements
 not in the lower triangle of the matrix to zero. The \func{drop0}
 function removes all zeros from the matrix, and returns a sparse
@@ -631,7 +654,7 @@ matrix as a \class{dgCMatrix} class.
 <<sparseHessianFD>>=
 @ 
 
-One advantage to using the sparseHessianFD class is that any
+One advantage to using \class{sparseHessianFD} is that any
 additional arguments that need to be passed to the LPD and gradient
 functions are stored within the object.  The class also
 contains member functions to return the objective function, gradient
@@ -644,12 +667,14 @@ posterior density, gradient and Hessian as follows:
 <<usingFD>>=
 @ 
 
-Let's take a quick look at the upper left corner of the Hessian.  We
-can see that it is sparse.
+In Figure \ref{fig:hessUpperLeft}, we can see that the upper-left
+  corner of the Hessian is sparse (the entire Hessian is too big to print).
 
-
+\begin{figure}
 <<hessUpperLeft, collapse=TRUE>>=
 @ 
+\caption{A sparse Hessian}\label{fig:hessUpperLeft}
+\end{figure}
 
 Here's a quick summary of what we did so far.where we are.
 
