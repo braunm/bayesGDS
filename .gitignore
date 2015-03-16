@@ -6,6 +6,14 @@
 .Rhistory
 .RData
 vignettes/*_cache
+vignettes/*_region_*
+vignettes/*.aux
+vignettes/*.log
+vignettes/*.bcf
+vignettes/*.bbl
+vignettes/*.run.xml
+vignettes/*.blg
+vignettes/prv_*
 inst/doc/*
 README.R
 
