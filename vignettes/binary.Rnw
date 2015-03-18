@@ -123,12 +123,13 @@ knitr::read_chunk("binary_chunks.R")
 
 
 \citet{BraunDamien2015}, henceforth known as BD, introduce a method of
-sampling from posterior distributions. The main advantage of BD over MCMC is
-that samples can be collected in parallel.  Furthermore, the algorithm
+sampling from posterior distributions. The main advantages of BD over MCMC are
+that samples can be collected in parallel, and that the algorithm
 is scalable for hierarchical models with conditionally independent
 heterogeneous units.  These features make BD an attractive estimation method
-for Bayesian hierarchical models of large datasets.  We assume that the reader
-has read that paper, and has a general familiarity with the method.  For convenience, Algorithm 1 in \citet{BraunDamien2015} is
+for Bayesian hierarchical models of large datasets.  We refer the
+reader to the BD paper for an explanation and justification of the
+algorithm.  For convenience, Algorithm 1 in \citet{BraunDamien2015} is
 reprinted here as Algorithm \ref{alg:GDS}.  
 
 A common reaction to the BD algorithm, and especially to the need to find
@@ -243,10 +244,6 @@ in Algorithm \ref{alg:GDS} that are relevant to each package.
 
 
 
-
-
-
-
 \section{Some background}
 
 The goal is to sample a
@@ -286,7 +283,7 @@ Thus, the log posterior density is written as
 \log \pi(\beta,\alpha|y)&=\sum_{i=1}^N\left[\log f(y_i|\beta_i)+\log\pi(\beta_i|\alpha)\right]+\log\pi(\alpha)-\log\mathcal{L}(y)
 \end{align}
 
-\subsection{Sparse Hessians}
+\subsection{Sparse Hessians}\label{sec:sparseHessians}
 
 An implication of the conditional independence
 assumption is that the cross-partial derivatives
@@ -353,12 +350,74 @@ non-zero.  If we work with only the lower triangle of the Hessian we only need t
 only $\Sexpr{format(nnz2LT, scientific=FALSE, big.mark=",")}$ values.
 
 
+
+
+\subsection{Nonlinear optimization}\label{sec:optimization}
+
+
+
+
+The first substantial step in the algorithm is to find the posterior
+mode, as task that often elicits the reaction of ``easier said than
+done.''   We agree that large-scale nonlinear optimization can be
+difficult when using standard \proglang{R} functions, like
+\func{optim}, or many of the optimization packages described in the R
+Task View on Optimization.  There are two common problems with these algorithms:
+
+1.  These algorithms may apply a stopping rule that is based on whether the value of the
+objective function is making "sufficient progress,'' or if the optimization
+    variables continue to change, from iteration to iteration.  These
+    stopping rules can be satisfied even when the gradient of the
+    objective function is not flat.  For an unconstrained objective
+    function, the \emph{only} appropriate stopping rule is whether a
+    function of the gradient (e.g., the Euclidean norm) is numerically
+    zero.  Any optimization routine that stops before that is stopping
+    prematurely, and the resulting normal approximations to the
+    posterior density would be invalid.
+
+    
+2.    Another limitation of most of these algorithms is that they can be
+difficult to use when there is a large number of decision
+variables. Search methods like Nelder-Mead (the default algorithm for
+\func{optim}) are inefficient with a
+massive number of parameters because the search space is large, and
+they do not exploit information about slope and curvature to speed up
+the time to convergence.  \method{CG} and \method{BFGS} do use
+gradient information, with \method{BFGS} tracing out the curvature of
+the function by using successive gradients to approximate the inverse
+Hessian.  However, because \method{BFGS} stores the entire dense
+inverse Hessian, its use is resource-intensive when the number of
+parameters is large.   Conjugate gradient methods do not store the full Hessian
+(or its inverse), so they can be more suited for large-scale
+problems. However, like \method{BFGS}, they are not certain to
+approximate the curvature of the objective function accurately at any
+particular iteration, especially if the function is not convex \citep{R_trustOptim}.
+    
+To facilitate fast convergence to the posterior mode, we should prefer
+an algorithm that uses exact calculations of the gradient and Hessian,
+remains scalable for large problems, stops only when the norm of the
+gradient is numerically zero, and is stable when passing through
+regions in which the surface of the objective function is flat.  The \func{trust.optim} function
+in the \pkg{trustOptim} package meets those criteria.  To use
+\func{trust.optim}, the user must provide R functions that return the value
+and gradient of the function.  To use an algorithm that is scalable for problems
+with sparse Hessians, the user must also provide a function that
+returns the Hessian as a \class{dgCMatrix} object (a compressed sparse
+matrix format defined in the \pkg{Matrix} package).  Details about the
+underlying algorithm are available in \citet{R_trustOptim}. 
+
+
+
 \subsection{Computing derivatives}
 
-Functions that return the gradient and Hessian of the unnormalized log
-posterior density can be
-useful both for finding the posterior mode, and for sampling from, and
-computing the density of, a multivariate normal (MVN) distribution.  In our opinion, there are two "good" ways to compute a gradient.  The
+
+Nearly all reasonable choices of a nonlinear optimization algorithm
+require the user to provide a the gradient of the objective function,
+and \func{trust.optim} requires the Hessian as well.  The Hessian is
+also required to approximate the posterior density with a MVN
+distribution around the posterior mode.  
+
+There are two "good" ways to compute a derivative.  The
 first is to derive it analytically, and write a function to compute
 it.  This approach is straightforward, but it can be tedious and
 error-prone for complicated models.
@@ -366,19 +425,19 @@ error-prone for complicated models.
 The second is to use automatic,
 or algorithmic, differentiation (AD).  In short, AD is an automated
 way of applying the chain rule through the same sequence of operations
-that computes the LPD.  There are a number of different approaches to
+that computes the objective function.  There are a number of different approaches to
 implementing AD, such as using a software library of specialized
 numerical types and operations.  While AD libraries are available for
-\proglang{Matlab}, \proglang{Python}, \proglang{C++} and \proglang{Fortran}, there are none for R that are
+many programming languages, there are none for \proglang{R} (yet) that are
 well-suited for a general class of Bayesian hierarchical models.  For
-\proglang{R} users, we believe that coding the LPD in \proglang{C++} using the \pkg{ADOL-C} or
-\pkg{CppAD} libraries, and interfacing with \proglang{R} using \pkg{Rcpp}, is the best option
+\proglang{R} users, we believe that coding the objective function in \proglang{C++} using the 
+\pkg{CppAD} library, and interfacing with \proglang{R} using \pkg{Rcpp}, is the best option
 at the moment.  How to do this will be the subject of a future
 vignette.  What matters is that functions that return the gradient and
 Hessian of the log posterior density are available, and that they are sufficiently
 accurate. 
 
-The advantages of these two methods is that the gradient is exact.
+The advantage of both analytic and AD derivatives is that they are ``exact.''
 This feature is in contrast to numerical approximation via finite
 differencing (FD), which we consider a "bad" way to provide a gradient for
 the BD algorithm.  FD differencing involves computing
@@ -386,41 +445,38 @@ $\dfrac{\partial f}{\partial x_j}\approx\dfrac{f(x_j+h)-f(x_j)}{h}$,
 or some variation thereof, for each of the $j=1...J$ variables,
 using an arbitrarily small $h$ as a ``perturbation factor.''  As $h\rightarrow 0$, this estimated
 difference approaches the gradient.  There are two problems with
-this approach.  First, the estimate is not exact.  If $h$ is too
+this approach.  First, the estimate of the derivative is not exact.  If $h$ is too
 large, the result is not close enough to the true gradient.  If $h$ is
-too small, the result may be subject to numerical precision issues. Second, this computation needs to be done for each
+too small, the result may be subject to numerical precision issues.
+The numerical precision issue is magnified for higher-order
+derivatives.  Second, this computation needs to be done for each
 element of the variable vector.  Thus, the time it takes to compute
-the gradient grows with the number of units or variables in the
-model. In contrast, the time to compute a gradient using AD methods is
+the gradient grows linearly with the number of units or variables in the
+model, and quadratically for the Hessian. In contrast, the time to compute a gradient using AD methods is
 a small fixed constant times the time to compute the function itself \citep{GriewankWalther2008}.
 The time to compute a analytically-derived gradient depends on how the gradient function is implemented.
 
-Deriving a Hessian analytically can be even more tedious and
-error-prone than deriving a gradient, so AD is the preferred method.
-Both \pkg{CppAD} and \pkg{ADOL-C} can return a sparse Hessian in a compressed
-format.
-
-If using AD to compute the Hessian is not an option, one can use
-finite differencing if the Hessian is sparse, \emph{and} the
+Nevertheless, one can use FD to estimate the Hessian if the Hessian is sparse, \emph{and} the
 sparsity pattern is known in advance, \emph{and} the gradient is
 exact (either derived analytically or computed using AD).  The
-\pkg{sparseHessianFD} package defines an \proglang{R} class for doing this. An object
-of class \class{sparseHessianFD} is constructed by providing
+\pkg{sparseHessianFD} package defines an \proglang{R} class for doing
+this (the algorithms are based on \citet{ColemanGarbow1985} and
+\citet{ColemanGarbow1985b}). An object
+of class \class{sparseHessianFD} is constructed from
 functions that return the value of the log density and its gradient; any additional
 arguments that are passed to these functions; and the row
 and column indices of the non-zero elements of the lower triangle of
-the Hessian.  Once the \class{sparseHessianFD} object is constructed,
-one can call the log density, the gradient, and the Hessian directly
-from the object.  The Hessian is returned as a \class{dgCMatrix}
-object, which is a sparse, compressed representation.  More details are in
+the Hessian.  Then one can call the objective function, the gradient, and the Hessian directly
+from the \class{sparseHessianFD} object.  The Hessian is returned as a \class{dgCMatrix}
+object, which is a sparse, compressed representation that is supported
+by the \pkg{trustOptim} and \pkg{sparseMVN} packages.  More details are in
 the \pkg{sparseHessianFD} documentation.
 
 The \class{sparseHessianFD} class is especially useful for
-hierarchical models because, as we discussed in Section XX, the
+hierarchical models because, as we discussed in Section \ref{sec:sparseHessians}, the
 sparsity pattern of a hierarchical model is often easily predictable.
-Even if a function that returns the values of the Hessian is
-available, it still may be faster to use \class{sparseHessianFD} for
-repeated estimation.  Given the typical sparsity pattern of a hierarchical model, the time to estimate
+Even if the Hessian were derived analytically, it still may be faster to use \class{sparseHessianFD} for
+repeated estimation, because of the way the package exploits sparsity.  Given the typical sparsity pattern of a hierarchical model, the time to estimate
 a Hessian using \pkg{sparseHessianFD} does not grow with the number of
 heterogeneous units, making it a particularly scalable way of
 estimating sparse Hessians for large datasets.
@@ -454,81 +510,12 @@ derivatives of the log posterior density:
 \end{enumerate}
 
 
-\subsection{Nonlinear optimization}\label{sec:optimization}
 
-Many researchers' initial reaction to the BD algorithm is that
-the task of finding the posterior mode of the LPD is easier said than
-done. This view is certainly true if it is informed by previous
-experience with the standard optimization algorithms in \proglang{R} (e.g., the
-\func{optim} function).  There are two characteristics of these algorithms
-that can cause problems:
-
-1.  The stopping rule of \func{optim} is based on whether the optimizer is
-    making "sufficient" progress, in either the value of the
-    objective function, or in the values of the optimization
-    variables.  Neither of these are appropriate conditions for having
-    found a local optimum in unconstrained problems.  Instead, the
-    algorithm should not stop until the derivative is zero, at least
-    up to machine precision. 
-
-2.  The default optimization method in \func{optim} is a derivative-free
-    search algorithm known as ``Nelder-Mead."  When the search for
-    variables that improve the objective function is conducted in a
-    large number of directions, the time to converge can be quite
-    high.  The \func{optim} function provides some derivative-based
-    algorithms that use successive estimates of the gradient to
-    approximate the curvature of the objecvtive function, such as
-    quasi-Newton (\method{BFGS}), conjugate gradient (\method{CG}), and limited-memory
-    \method{BFGS}. \method{BFGS} gives the most "complete" estimate of the Hessian, but
-    needs to store that approximation in a matrix that grows
-    quadratically with the number of variables.  \method{CG} and \method{L-BFGS} are more
-    suited for large-scale problems, but depend on the accuracy of the
-    Hessian approximation for rapid convergence to the local optimum.
-
-To facilitate fast convergence to the posterior mode, we should prefer
-an algorithm that uses exact calculations of the gradient and Hessian,
-remains scalable for large problems, stops only when the norm of the
-gradient is numerically zero, and is stable when passing through
-regions in which the surface of the objective function is flat.  The \func{trust.optim} function
-in the \pkg{trustOptim} package meets those criteria.  To use
-\func{trust.optim}, the user must provide R functions that return the value
-and gradient of the function.  To use an algorithm that is scalable for problems
-with sparse Hessians, the user must also provide a function that
-returns the Hessian as a \class{dgCMatrix} object (a compressed sparse
-matrix format defined in the \pkg{Matrix} package).  Details about the
-underlying algorithm are available in \citet{R_trustOptim}.
-
-
-The \pkg{trustOptim} package provides a function for unconstrained
-nonlinear optimization that has a few advantages over other optimizers
-that are available for R.
-
-1.  It uses a "trust region" algorithm, that may be more stable for
-    certain types of objective functions, especially those that are
-	poorly conditioned, or have regions that are nearly flat.   	
-	
-2.  The user can accelerate the optimization routine by providing a function that returns the Hessian as a sparse object.
-
-3.  The stopping rule is based on the norm of the gradient, and not
-    whether the optimization is making "sufficient progress."  This
-    means that the optimizer is less like to halt at a value at which
-    the gradient is not really flat.
-
-The documentation for the \pkg{trustOptim} package provides much more
-detail about the algorithm, and the arguments to the \func{trust.optim}
-function.  For this example, we use the member functions of the FD
-object to return the log posterior density, gradient and Hessian.  We
-do not need to provide \funcarg{data} and \funcarg{priors}, since those are already
-stored in FD.
-
-
-
-
-\subsection{Large-scale proposal densities}
+\subsection{High-dimensional MVN distribution}
 
 Another potential source of poor scalability is in sampling from, and
 computing the log density of, a multivariate normal (MVN)
-distribution. The \func{rmvnorm} and \func{dmvnorm} functions from the
+distribution. The \func{rmvnorm} and \func{dmvnorm} functions in the
 \pkg{mvtnorm} package are inefficient
 in the context of the BD algorithm for three reasons.  First, they
 require the covariance matrix as one of the arguments, meaning that
@@ -537,13 +524,13 @@ exploit the sparsity of the Hessian for computational gain.  Third,
 the \func{rmvnorm} function performs a matrix factorization every time it
 is called, even if the covariance matrix has not changed.
 
-The \pkg{sparseMVN} package solves these problems.  The \func{rmvn.sparse} and
+The \pkg{sparseMVN} package addresses these issues.  The \func{rmvn.sparse} and
 \func{dmvn.sparse} functions take, as one of the arguments, the Cholesky
 decomposition of either a sparse covariance or sparse precision
 matrix.  Thus, the user has a choice of provide either the covariance
 or precision matrix, depending on which is more convenient.  While the
 user does have to generate the sparse Cholesky decomposition first,
-the Cholesky object is in a sparse, compressed format.  Since the size
+the \class{Cholesky} object (defined in the \pkg{Matrix} package) is in a sparse, compressed format.  Since the size
 of the sparse Hessian grows only linearly with the size of the
 dataset, the \pkg{sparseMVN} package is a scalable alternative for working
 with an MVN.  More details are available in the \pkg{sparseMVN}
@@ -551,7 +538,8 @@ documentation and vignette, as well as in the example below.
 
 \section{Example:  hierarchical binary choice}\label{sec:example}
 
-Before going into the details of how to use the package, let's
+Before going into the details of how to put all of the pieces of the
+BD algorithm together, let's
 consider the following example of a log posterior density function
 with a sparse Hessian.
  Suppose we have a dataset of $N$ households, each with $T$
@@ -587,7 +575,7 @@ would be independent.
 
 This conditional independence assumption is what allows us to write
 the joint likelihood of the data as a product of individual-level
-probability models.  The log posterior density (LPD), ignoring any normalization constants, is
+probability models.  The log posterior density, ignoring any normalization constants, is
 \begin{align}
   \log \pi(\beta_{1:N},\mu|Y, X, \Sigma_0,\Omega_0)=\sum_{i=1}^Np_i^{y_i}(1-p_i)^{T-y_i}
   -\frac{1}{2}\left(\beta_i-\mu\right)'\Sigma^{-1}\left(\beta_i-\mu\right)
@@ -598,7 +586,7 @@ probability models.  The log posterior density (LPD), ignoring any normalization
 
 \subsubsection{Sample data and priors}
 
-The package includes a simulated dataset for $N$ households and $k$
+This package includes a simulated dataset for $N$ households and $k$
 covariates per household.  A household makes $Y$ purchases out of $T$
 opportunities.  The purchase probability for each household depends on
 a covariate matrix $X$.  So let's start by loading the data (the name
@@ -608,19 +596,18 @@ of the data set is "binary"), and setting hyperprior values for $\Sigma^{-1}$ an
 @ 
 
 
-\subsubsection{LPD and gradient functions}
+\subsubsection{Functions included in the package}
 
 The function \func{binary.f} returns the log
 posterior density of this model, evaluated at the vector passed as the
 first argument.  This function takes two additional named arguments,
-\funcarg{data} and \funcarg{priors}.  These two arguments are specific to this
+\funcarg{data} and \funcarg{priors}.  These two latter arguments are specific to this
 example; in general, no additional arguments are required.  The
 function funcarg{binary.grad} returns the gradient, and \funcarg{binary.hess} returns a
-Hessian, in a sparse compressed format.  If you want to look more
-closely at these functions, look at the \filename{R/binary.R} file in the package
-source code.
+Hessian, in a sparse compressed format. 
 
-So let's evaluate the LPD at a random "starting value."
+The following code chunk evaluates the log posterior density at a
+random vector.
  
 
 <<startingVals>>=
