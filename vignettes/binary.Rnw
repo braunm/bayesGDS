@@ -1,4 +1,4 @@
-\documentclass{article}
+\documentclass[10pt]{article}
 
 
 %\VignetteEngine{knitr::knitr}
@@ -29,7 +29,7 @@
 \DeclareMathOperator\Chol{Chol }
 \DeclareMathOperator\cov{cov}
 
-\newcommand{\pkg}[1]{\textbf{#1}}
+\newcommand{\pkg}[1]{\emph{#1}}
 \newcommand{\proglang}[1]{\textsf{#1}}
 \newcommand{\func}[1]{\texttt{#1}}
 \newcommand{\class}[1]{\texttt{#1}}
@@ -112,14 +112,20 @@
 \renewcommand{\bibitemsep}{1ex}
 \def\bibfont{\small}
 
+\title{Estimating Bayesian Hierarchical Models using \pkg{bayesGDS}}
+\date{March 18, 2015}
 
 \begin{document}
 
+\maketitle
+
 <<setup1, echo=FALSE, cache=FALSE>>=
+library(methods, quietly = TRUE)
+library(bayesGDS, quietly = TRUE)
 knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#",
-                           message=FALSE, tidy=FALSE) #
+                           message=FALSE, tidy=FALSE, cache = TRUE) #
 knitr::read_chunk("binary_chunks.R")
-@ 
+@
 
 
 \citet{BraunDamien2015}, henceforth known as BD, introduce a method of
@@ -130,26 +136,17 @@ heterogeneous units.  These features make BD an attractive estimation method
 for Bayesian hierarchical models of large datasets.  We refer the
 reader to the BD paper for an explanation and justification of the
 algorithm.  For convenience, Algorithm 1 in \citet{BraunDamien2015} is
-reprinted here as Algorithm \ref{alg:GDS}.  
+reprinted here, also as Algorithm \ref{alg:GDS}.
 
 A common reaction to the BD algorithm, and especially to the need to find
 the posterior mode, is ``easier said than done.''  We suspect that this reaction comes
 from people who use existing \proglang{R} functions and package that
 are not particularly scalable.  Examples include using the \func{optim}
-function in base \proglang{R} to find the posterior model, and the
+function in base \proglang{R} to find the posterior mode, or the
 \func{rmvnorm} function in the \pkg{mvtnorm} package for sampling from
-a multivariate normal (MVN) random variable.  These are packages with which 
+a multivariate normal (MVN) random variable.  These are functions with which
 most \proglang{R} users are familiar, so it is understandable that the
 barrier to adoption of algorithms that fail when using them would be high.
-
-%% Informally, the steps of the algorithm can be grouped 
-%% into three ``phases:''
-
-%% \begin{enumerate}
-%% \item Find the posterior mode;
-%% \item Estimate the marginal density of threshold variables; and
-%% \item Collect posterior draws through a modified rejection sampling process.
-%% \end{enumerate}
 
 \begin{algorithm}
 \caption{Algorithm to collect $R$ samples from $\Post$}
@@ -200,16 +197,17 @@ barrier to adoption of algorithms that fail when using them would be high.
 \end{algorithm}
 
 
-In this note, we explain how one can implement the BD algorithm in a
+Fortunately, there are alternatives to \func{optim}, \func{rmvnorm},
+and some other commonly used \proglang{R} functions, that are better
+choices for running the BD algorithm on hierarchical models.  In this note, we explain how one can implement the BD algorithm in a
 scalable way, using packages that were written with that algorithm
-in mind.  These packages, listed in Table \ref{tab:packages}, are
+in mind.  These packages are listed in Table \ref{tab:packages}, and are
 required to run the code in this vignette.  The \pkg{Matrix} and \pkg{sparseHessianFD} define
-classes for working with sparse matrices, and the 
+classes for working with sparse matrices, and the
 \pkg{sparseMVN}, and \pkg{trustOptim} packages respectively provide sampling and
 optimization routines that are designed to work with sparse matrices.
-The \pkg{bayesGDS} package implements the posterior sampling phase of
-the BD algorithm.  Table \ref{tab:packages} also refers to the lines
-in Algorithm \ref{alg:GDS} that are relevant to each package.
+Those packages are not strictly necessary to use BD, but this package
+(\pkg{bayesGDS}) implements only the rejection sampling phase.
 
 
 \begin{table}[htb]
@@ -250,16 +248,17 @@ The goal is to sample a
 parameter vector $\theta$ from a posterior density $\pi(\theta|y)$,
 where $\pi(\theta)$ is the prior on $\theta$, $f(y|\theta)$ is the data
 likelihood conditional on $\theta$, and $\mathcal{L}(y)$ is the marginal
-likelihood of the data.  Therefore,
+likelihood of the data.  Let $\mathcal{D}(\theta,y)$ be the joint
+density of the data and the parameters. Therefore,
 \begin{align}
 \pi(\theta|y)=\frac{f(y|\theta)\pi(\theta)}{\mathcal{L}(y)}=\frac{\mathcal{D}(\theta,y)}{\mathcal{L}(y)}
 \end{align}
-where $\mathcal{D}(\theta,y)$ is the joint
-density of the data and the parameters (of the unnormalized posterior
-density).
+
+The model is fully specified by $\mathcal{D}(\theta,y)$, which is
+equivalent to the posterior density, up to a normalizing factor $1/\Ly$.
 
 Under the conditional
-independence assumption, the likelihood can be factored as
+independence assumption, the data likelihood can be factored as
 
 \begin{align}
 f(y|\theta)=\prod_{i=1}^Nf_i\left(y_i|\beta_i,\alpha\right)
@@ -271,13 +270,13 @@ parameters.  The $\beta_i$ are distributed across the population of
 households according to a mixing distribution $\pi(\beta_i|\alpha)$,
 which also serves as the prior on each $\beta_i$.  The elements of $\alpha$
 may influence either the household-level data likelihoods, or the
-mixing distribution (or both).  In this example, $\theta$ includes all 
-$\beta_1\mathellipsis\beta_N$ and all elements of $\alpha$.  The
-prior itself can be factored as
+mixing distribution (or both).  In this example, $\theta$ includes all
+$\beta_1\mathellipsis\beta_N$ and all elements of $\alpha$.
+
+The prior itself can be factored as
 \begin{align}
 \pi(\theta)=\prod_{i=1}^N\pi_i(\beta_i|\alpha)\times\pi(\alpha).
 \end{align}
-
 Thus, the log posterior density is written as
 \begin{align}
 \log \pi(\beta,\alpha|y)&=\sum_{i=1}^N\left[\log f(y_i|\beta_i)+\log\pi(\beta_i|\alpha)\right]+\log\pi(\alpha)-\log\mathcal{L}(y)
@@ -287,14 +286,14 @@ Thus, the log posterior density is written as
 
 An implication of the conditional independence
 assumption is that the cross-partial derivatives
-$\dfrac{\partial^2\log\pi}{\beta_i\beta_j}$ are zero for all $i\neq
+$\dfrac{\partial^2\log\Dy}{\beta_i\beta_j}$ are zero for all $i\neq
 j$. As the number of households in the dataset increases, the number
 of elements in the Hessian matrix increases quadratically, but the
 number of \emph{non-zero} elements increases only linearly.  Thus, the
 Hessian becomes sparser as the data set gets larger.
 
 <<setup2, echo=FALSE>>=
-@ 
+@
 
 Suppose we have a hierarchical model with $N$ heterogeneous units,
 each with a parameter vector of length $k$.  Also, assume that there
@@ -322,7 +321,7 @@ Now the Hessian has an "off-diagonal" sparsity pattern, as in Figure \ref{fig:pa
 \begin{figure}
   \begin{subfigure}[t]{.5\linewidth}
 <<pattern1, echo=FALSE>>==
-@ 
+@
 \caption{A ``block-arrow'' sparsity pattern}\label{fig:pattern1}
 \end{subfigure}
 \begin{subfigure}[t]{.5\linewidth}
@@ -334,7 +333,6 @@ Now the Hessian has an "off-diagonal" sparsity pattern, as in Figure \ref{fig:pa
   pattern depends on the ordering of the coefficients. The
   \class{lgCMatrix} class is defined in the \pkg{Matrix} package.}
 \end{figure}
-
 
 
 In both cases, the number of non-zeros is the same.  There are
@@ -349,36 +347,35 @@ elements in the Hessian.  However, only $\Sexpr{format(nnz2, scientific=FALSE, b
 non-zero.  If we work with only the lower triangle of the Hessian we only need to work with
 only $\Sexpr{format(nnz2LT, scientific=FALSE, big.mark=",")}$ values.
 
+The sparsity of the Hessian of $\log\Dy$ is critical to the
+scalability of the BD algorithm.  Storing the sparse Hessian in a
+compressed format not only reduces the memory requirements needed to
+store the Hessian, but also the number of operations needed to
+multiplying by, inverting, or decomposing it.  Taking advantage of the
+sparsity dramatically speeds up the process of finding the posterior
+mode, and sampling from an MVN.  See \citet{BraunDamien2015}, Section 4.
 
 
 
 \subsection{Nonlinear optimization}\label{sec:optimization}
 
+The BD algorithm involves finding a posterior mode, $\theta^*$, which
+often elicits a reaction of ``easier said than
+done.''   Finding $\theta^*$ can be a hard problem for large models when using standard
+optimization routines, like the \func{optim} function in base
+\proglang{R}. There are two common problems with these algorithms:
 
+\paragraph{Premature stopping}  These algorithms may apply a stopping rule that is based on
+whether the optimizer is making "sufficient progress.''  Thus, the
+optimizer can stop before the gradient of the
+objective function is flat.  For an unconstrained objective
+function, the \emph{only} appropriate stopping rule is whether a
+function of the gradient (e.g., the Euclidean norm) is numerically
+zero.  Any optimization routine that stops before that is stopping
+prematurely, and the resulting normal approximations to the
+posterior density would be invalid.
 
-
-The first substantial step in the algorithm is to find the posterior
-mode, as task that often elicits the reaction of ``easier said than
-done.''   We agree that large-scale nonlinear optimization can be
-difficult when using standard \proglang{R} functions, like
-\func{optim}, or many of the optimization packages described in the R
-Task View on Optimization.  There are two common problems with these algorithms:
-
-1.  These algorithms may apply a stopping rule that is based on whether the value of the
-objective function is making "sufficient progress,'' or if the optimization
-    variables continue to change, from iteration to iteration.  These
-    stopping rules can be satisfied even when the gradient of the
-    objective function is not flat.  For an unconstrained objective
-    function, the \emph{only} appropriate stopping rule is whether a
-    function of the gradient (e.g., the Euclidean norm) is numerically
-    zero.  Any optimization routine that stops before that is stopping
-    prematurely, and the resulting normal approximations to the
-    posterior density would be invalid.
-
-    
-2.    Another limitation of most of these algorithms is that they can be
-difficult to use when there is a large number of decision
-variables. Search methods like Nelder-Mead (the default algorithm for
+\paragraph{Poor scalability}   Search methods like Nelder-Mead (the default algorithm for
 \func{optim}) are inefficient with a
 massive number of parameters because the search space is large, and
 they do not exploit information about slope and curvature to speed up
@@ -392,7 +389,7 @@ parameters is large.   Conjugate gradient methods do not store the full Hessian
 problems. However, like \method{BFGS}, they are not certain to
 approximate the curvature of the objective function accurately at any
 particular iteration, especially if the function is not convex \citep{R_trustOptim}.
-    
+
 To facilitate fast convergence to the posterior mode, we should prefer
 an algorithm that uses exact calculations of the gradient and Hessian,
 remains scalable for large problems, stops only when the norm of the
@@ -404,7 +401,7 @@ and gradient of the function.  To use an algorithm that is scalable for problems
 with sparse Hessians, the user must also provide a function that
 returns the Hessian as a \class{dgCMatrix} object (a compressed sparse
 matrix format defined in the \pkg{Matrix} package).  Details about the
-underlying algorithm are available in \citet{R_trustOptim}. 
+underlying algorithm are available in \citet{R_trustOptim}.
 
 
 
@@ -412,10 +409,10 @@ underlying algorithm are available in \citet{R_trustOptim}.
 
 
 Nearly all reasonable choices of a nonlinear optimization algorithm
-require the user to provide a the gradient of the objective function,
-and \func{trust.optim} requires the Hessian as well.  The Hessian is
+require the user to provide a the gradient of the objective function.
+The \method{Sparse} method for \func{trust.optim} requires the Hessian as well.  The Hessian is
 also required to approximate the posterior density with a MVN
-distribution around the posterior mode.  
+distribution around the posterior mode.
 
 There are two "good" ways to compute a derivative.  The
 first is to derive it analytically, and write a function to compute
@@ -423,21 +420,20 @@ it.  This approach is straightforward, but it can be tedious and
 error-prone for complicated models.
 
 The second is to use automatic,
-or algorithmic, differentiation (AD).  In short, AD is an automated
-way of applying the chain rule through the same sequence of operations
+or algorithmic, differentiation (AD).  In short, AD generates
+code for the derivative by applying the chain rule on the same sequence of operations
 that computes the objective function.  There are a number of different approaches to
-implementing AD, such as using a software library of specialized
-numerical types and operations.  While AD libraries are available for
-many programming languages, there are none for \proglang{R} (yet) that are
+implementing AD, and AD libraries are available for
+many programming languages.  However, as of now, there are none for \proglang{R} that are
 well-suited for a general class of Bayesian hierarchical models.  For
-\proglang{R} users, we believe that coding the objective function in \proglang{C++} using the 
+\proglang{R} users, we believe that coding the objective function in \proglang{C++} using the
 \pkg{CppAD} library, and interfacing with \proglang{R} using \pkg{Rcpp}, is the best option
 at the moment.  How to do this will be the subject of a future
-vignette.  What matters is that functions that return the gradient and
-Hessian of the log posterior density are available, and that they are sufficiently
-accurate. 
+vignette.
 
-The advantage of both analytic and AD derivatives is that they are ``exact.''
+What matters is that functions that return the gradient and
+Hessian of the log posterior density are available, and that they are sufficiently
+accurate.  The advantage of both analytic and AD derivatives is that they are ``exact.''
 This feature is in contrast to numerical approximation via finite
 differencing (FD), which we consider a "bad" way to provide a gradient for
 the BD algorithm.  FD differencing involves computing
@@ -445,16 +441,21 @@ $\dfrac{\partial f}{\partial x_j}\approx\dfrac{f(x_j+h)-f(x_j)}{h}$,
 or some variation thereof, for each of the $j=1...J$ variables,
 using an arbitrarily small $h$ as a ``perturbation factor.''  As $h\rightarrow 0$, this estimated
 difference approaches the gradient.  There are two problems with
-this approach.  First, the estimate of the derivative is not exact.  If $h$ is too
+this approach.
+
+\begin{itemize}
+ \item The estimate of the derivative is not exact.  If $h$ is too
 large, the result is not close enough to the true gradient.  If $h$ is
 too small, the result may be subject to numerical precision issues.
 The numerical precision issue is magnified for higher-order
-derivatives.  Second, this computation needs to be done for each
-element of the variable vector.  Thus, the time it takes to compute
+derivatives.
+\item  The finite differencing operation needs to be done for each
+element of the variable vector.  The time it takes to compute
 the gradient grows linearly with the number of units or variables in the
-model, and quadratically for the Hessian. In contrast, the time to compute a gradient using AD methods is
+model, and quadratically for the Hessian. In contrast, the time to compute a gradient using AD is
 a small fixed constant times the time to compute the function itself \citep{GriewankWalther2008}.
 The time to compute a analytically-derived gradient depends on how the gradient function is implemented.
+\end{itemize}
 
 Nevertheless, one can use FD to estimate the Hessian if the Hessian is sparse, \emph{and} the
 sparsity pattern is known in advance, \emph{and} the gradient is
@@ -470,15 +471,17 @@ the Hessian.  Then one can call the objective function, the gradient, and the He
 from the \class{sparseHessianFD} object.  The Hessian is returned as a \class{dgCMatrix}
 object, which is a sparse, compressed representation that is supported
 by the \pkg{trustOptim} and \pkg{sparseMVN} packages.  More details are in
-the \pkg{sparseHessianFD} documentation.
+the \pkg{sparseHessianFD} documentation, and in the example that
+follows in this vignette.
 
-The \class{sparseHessianFD} class is especially useful for
-hierarchical models because, as we discussed in Section \ref{sec:sparseHessians}, the
-sparsity pattern of a hierarchical model is often easily predictable.
-Even if the Hessian were derived analytically, it still may be faster to use \class{sparseHessianFD} for
+The \class{sparseHessianFD} class is useful for
+hierarchical models because the
+sparsity pattern of a hierarchical model is often predictable.
+Even if the Hessian were derived analytically, it still may be faster
+to use \class{sparseHessianFD} for
 repeated estimation, because of the way the package exploits sparsity.  Given the typical sparsity pattern of a hierarchical model, the time to estimate
 a Hessian using \pkg{sparseHessianFD} does not grow with the number of
-heterogeneous units, making it a particularly scalable way of
+heterogeneous units, making it a scalable way of
 estimating sparse Hessians for large datasets.
 
 The trade-off from using the \pkg{sparseHessianFD} package is that the
@@ -511,7 +514,7 @@ derivatives of the log posterior density:
 
 
 
-\subsection{High-dimensional MVN distribution}
+\subsection{High-dimensional MVN distribution}\label{sec:MVN}
 
 Another potential source of poor scalability is in sampling from, and
 computing the log density of, a multivariate normal (MVN)
@@ -534,7 +537,7 @@ the \class{Cholesky} object (defined in the \pkg{Matrix} package) is in a sparse
 of the sparse Hessian grows only linearly with the size of the
 dataset, the \pkg{sparseMVN} package is a scalable alternative for working
 with an MVN.  More details are available in the \pkg{sparseMVN}
-documentation and vignette, as well as in the example below. 
+documentation and vignette, as well as in the example below.
 
 \section{Example:  hierarchical binary choice}\label{sec:example}
 
@@ -560,22 +563,22 @@ $\Sigma$.   We assume that we know $\Sigma$, but we do not know $\mu$.
 Instead, we place a multivariate normal prior on $\mu$, with mean $0$
 and covariance $\Omega_0$.  Thus, each $\beta_i$, and $\mu$ are
 $k-$dimensional vectors, and the total number of unknown variables in
-the model is $(N+1)k$. 
+the model is $(N+1)k$.
 
 In this model, we will make an assumption of \emph{conditional
 independence} across households.   A household's purchase count $y_i$
-depends on that households parameters $\beta_i$, but not the
+depends on that household's $\beta_i$, but not the
 parameters of any other household, $\beta_j$, conditional on other
 population level parameters.  Since $\mu$ and $\Sigma$ depend on
 $\beta_i$ for \emph{all} households, we cannot say that $y_i$ and $y_j$ are
 truly independent.  A change in $\beta_i$ affects $\mu$ and
 $\Sigma$, which in turn affect $\beta_j$ for some other household
-$j$.  However, if we condition on $\mu$ and $\Sigma$, $y_i$ and $y_j$
-would be independent.
+$j$.  However, if we condition on $\mu$ and $\Sigma$, then $y_i$ and $y_j$
+are independent, so we describe the data likelihoods as conditionally independent.
 
 This conditional independence assumption is what allows us to write
 the joint likelihood of the data as a product of individual-level
-probability models.  The log posterior density, ignoring any normalization constants, is
+probability models.  Therefore, the log posterior density, ignoring any normalization constants, is
 \begin{align}
   \log \pi(\beta_{1:N},\mu|Y, X, \Sigma_0,\Omega_0)=\sum_{i=1}^Np_i^{y_i}(1-p_i)^{T-y_i}
   -\frac{1}{2}\left(\beta_i-\mu\right)'\Sigma^{-1}\left(\beta_i-\mu\right)
@@ -584,99 +587,92 @@ probability models.  The log posterior density, ignoring any normalization const
 
 \subsection{Computing function values on sample data}
 
-\subsubsection{Sample data and priors}
+\subsubsection{Functions, sample data, and priors for the example}
 
-This package includes a simulated dataset for $N$ households and $k$
+The \pkg{bayesGDS} package includes a simulated dataset for $N$ households and $k$
 covariates per household.  A household makes $Y$ purchases out of $T$
 opportunities.  The purchase probability for each household depends on
 a covariate matrix $X$.  So let's start by loading the data (the name
 of the data set is "binary"), and setting hyperprior values for $\Sigma^{-1}$ and $\Omega^{-1}$.
 
-<<data>>= 
-@ 
+<<data>>=
+@
 
 
-\subsubsection{Functions included in the package}
-
-The function \func{binary.f} returns the log
-posterior density of this model, evaluated at the vector passed as the
+The function \func{binary.f} returns the unnormalized log
+posterior density of this model, $\log\Dy$, evaluated at the vector passed as the
 first argument.  This function takes two additional named arguments,
 \funcarg{data} and \funcarg{priors}.  These two latter arguments are specific to this
 example; in general, no additional arguments are required.  The
-function funcarg{binary.grad} returns the gradient, and \funcarg{binary.hess} returns a
-Hessian, in a sparse compressed format. 
+function \funcarg{binary.grad} returns the gradient, and \funcarg{binary.hess} returns a
+Hessian, in a sparse compressed format.
 
-The following code chunk evaluates the log posterior density at a
-random vector.
- 
 
 <<startingVals>>=
-@ 
+@
 
-\subsubsection{Using sparseHessianFD}
+\subsubsection{Using sparseHessianFD when the Hessian is unknown}
 
-In practice, it is likely that you will not have a function
-available that returns the Hessian (that is, there would be no
-equivalent to \func{binary.hess}). Fortunately, hierarchical models
-have Hessians with a predictable sparsity pattern.  You could write a
-short code snippet that returns the row and column indices for your
-particular problem.  Solely for the purposes of this example, we will
-use the \func{binary.hess} function to compute the Hessian, and then
-extract the sparsity pattern using the \func{Matrix.to.Coord} function from
-the \pkg{sparseHessianFD} package.  The \func{tril} function sets all elements
-not in the lower triangle of the matrix to zero. The \func{drop0}
-function removes all zeros from the matrix, and returns a sparse
-matrix as a \class{dgCMatrix} class.
+Hessians can be difficult to derive analytically, but Hessians for hierarchical models
+have predictable sparsity patterns. The
+\pkg{sparseHessianFD} package simplifies numerical approximation of a
+sparse Hessian, and should be used if exact
+methods are unavailable.  An object of
+class \class{sparseHessianFD} contains member functions that return
+the function, the gradient, and the Hessian, with the Hessian being in
+a sparse, compressed format.  The constructor of a \class{sparseHessianFD}
+object consists of the objective function and its gradient, any other
+objects that are passed to those functions, and the sparsity pattern
+of the lower triangle of the Hessian.  The sparsity pattern is defined
+by integer vectors of the row and column indices of the nonzero elements.
 
+A straightforward
+way to generate the sparsity pattern is to build a sparse integer or logical matrix,
+and then use the \func{Matrix.to.Coord} function from \pkg{sparseHessianFD}.
 
 <<hessStruct>>=
-@ 
+@
+
+Note that only the lower triangular elements should be included.
+
+Now we can construct the \class{sparseHessianFD} object.
 
 <<sparseHessianFD>>=
-@ 
+@
 
 One advantage to using \class{sparseHessianFD} is that any
-additional arguments that need to be passed to the LPD and gradient
-functions are stored within the object.  The class also
-contains member functions to return the objective function, gradient
-and Hessian.  These member functions take only one argument, the
-variable vector.  This means that we do not need to repeatedly pass
+additional arguments that need to be passed to the objective function are stored within the object. This means that we do not need to repeatedly pass
 the data and prior arguments.  So now, we can compute the log
 posterior density, gradient and Hessian as follows:
 
-
 <<usingFD>>=
-@ 
+@
 
 In Figure \ref{fig:hessUpperLeft}, we can see that the upper-left
   corner of the Hessian is sparse (the entire Hessian is too big to print).
 
 \begin{figure}
 <<hessUpperLeft, collapse=TRUE>>=
-@ 
+@
 \caption{A sparse Hessian}\label{fig:hessUpperLeft}
 \end{figure}
 
-Here's a quick summary of what we did so far.where we are.
+We can also confirm that the estimate of the Hessian is correct.
 
-1.  We specified the model with a
-function for the LPD, and one for its gradient. The first argument of these two functions must be a
-variable vector.  Another other arguments must be named.
+<<hessTest>>=
+@
 
-2.  We identified the row and column indices of the nonzero elements of the
-Hessian of the LPD. In this case, we kind of "cheated" by using a
-function that computes the Hessian exactly.  If such a function is not
-available, one could generate a short loop to do the same thing.
 
-3.  We constructed an object of class \class{sparseHessianFD} that contains
-    functions that return the LPD, the gradient, and the sparse Hessian.
+\section{Running the algorithm}
 
+Now it's time to estimate the posterior distributions of the model parameters.
 
 \subsubsection{Finding posterior mode}
 
-Now it is time to find the posterior mode.  As discussed above, we
-will use the \pkg{trustOptim} package, because it exploits the sparsity of
-the Hessian of the objective function.  For the \funcarg{fn}, \funcarg{gr} and \funcarg{hs}
+We use the \pkg{trustOptim} package, because it exploits the sparsity of
+the Hessian of the objective function, and it uses the gradient of the
+objective function to determine when it has converged to a local
+optimum.  For the \funcarg{fn}, \funcarg{gr} and \funcarg{hs}
 arguments, we provide the member functions of the FD object.  Details
 on the control list are available in the \pkg{trustOptim} documentation.
 The most important control option to mention here is that
@@ -684,9 +680,7 @@ The most important control option to mention here is that
 negative for maximization.
 
 <<trustOptim>>=
-@ 
-
-The variable \code{post.mode} corresponds to $\theta^*$ in \citet{BraunDamien2015}.
+@
 
 
 \subsubsection{Defining proposal functions}
@@ -694,14 +688,14 @@ The variable \code{post.mode} corresponds to $\theta^*$ in \citet{BraunDamien201
 Next, we define a function to sample from a proposal density, and a
 function to compute the log density of a proposal draw.  These
 functions take a variable vector as the first argument, and list of
-proposal parameters as the second argument.  As discussed above, the
+proposal parameters as the second argument.  As discussed in Section \ref{sec:MVN}, the
 functions in the \pkg{sparseMVN} package require two parameters:  a mean
 vector, and a Cholesky decomposition of either the covariance or
 precision matrix.  That means we need some wrapper functions.
 
 
 <<defPropFuncs>>=
-@ 
+@
 
 Next, we put the proposal parameters in a list. The proposal mean is
 the posterior mean.  The proposal precision is the negative Hessian,
@@ -709,77 +703,113 @@ times a scaling factor.
 
 
 <<propParams>>=
-@ 
+@
 
 
 \subsubsection{Side note:  running the algorithm in parallel}
 
 An advantage of BD over MCMC is that both proposal and posterior
 samples can be generated in parallel.  There are a number of different
-mechanisms available in R for running jobs in parallel.  One that I
-think is easy to use requires the following setup.
+mechanisms available in \proglang{R} for running jobs in parallel.  One that I
+think is easy to use is based on the \pkg{parallel} package.  In the
+next code chunk, I allocate 10 cores for parallel processing, and set
+a random seed for simulating random variables (more on that later).
+If you do not want to run the code in parallel, change the flag to
+\code{run.par <- FALSE}.  This will change the number of allocated
+cores to 1.
 
 <<parallelSetup>>=
-@ 
-
-This code allocates 12 processing cores to the parallel functions
-below; use the number that is right for your system.  If you do not
-want to run the code in parallel, change the flag to \code{run.par <-
-FALSE}.
+@
 
 
-\subsubsection{Running the algorithm}
+
+
+\subsubsection{Estimating density of threshold values}
 The next step in the BD algorithm is to simulate an empirical
-approximation to the distribution of $\Phi(\theta|y)$ by sampling $M$
-times from the proposal distribution, and computing
+approximation to the cumulative distribution of $\Phi(\theta|y)$.  We sample $M$
+times from the proposal distribution, and compute
 $\log\Phi(\theta|y)$ for each proposal sample.  Following the notation
 in \citet{BraunDamien2015}, \variable{log.c1} is the log posterior density, and
 \variable{log.c2} is the log of the proposal density, both evaluated at the
-posterior mode.
+posterior mode $\theta^*$.
 
-This code uses the \func{aaply} function in the \pkg{plyr} package to compute
-the LPD for each proposal draw.  This step will run in parallel if
+The next code chunk uses the \func{aaply} function from the \pkg{plyr} package to compute
+the log posterior density for each proposal draw.  This step will run in parallel if
 \code{run.par == TRUE}.
 
 <<proposals>>=
-@ 
+@
 
 The last two lines in the previous code chunk are checks that
-$\Phi(\theta|y)\leq 1$ for all of the proposal draws.  If not, then
+$\Phi(\theta|y)\leq 1$ for all of the proposal draws.  If the check fails, then
 the proposal distribution is invalid.  Make the proposal distribution
 more diffuse by reducing the scaling factor on the negative Hessian,
 and try again.
 
-helpful hint:  Note that if $M$ is too low, there may not be enough draws to confirm
-that the proposal distribution is indeed diffuse enough.  This can
+Helpful hint:  If $M$ is too low, there may not be enough proposal draws to confirm
+that the proposal distribution is sufficiently diffuse.  This can
 cause problems later.  So don't try to make the proposal distribution
-too "tight."
+too "tight."  We think that time invested in ``optimizing'' the
+proposal distribution is not a well-used resource.
 
 
-\subsubsection{Posterior draws}
+\subsubsection{Posterior draws via rejection sampling}
 
- \emph{Finally} we can start sampling from the posterior density.  This
-  code should run only if \funcarg{invalid.scale} is \variable{FALSE}.  Also, this step
-  can be run in serial, or in parallel.  The idea behind the  parallel
-  implementation is that samples are collected in batches. For
-  example, suppose we need 100 posterior samples, and we have 5
-  processing cores available.  We will run 5 instances of the
-  sample.GDS function, each of which will generate 20 posterior draws
-  as a batch.  We can then reassemble the output from the batches into
-  a single result object.  If the number of batches exceeds the number
-  of cores, some batches will wait until another batch is free.  The
-  order of the draws does not matter.
+ \emph{Finally} we can start sampling from the posterior density,
+ using functions in the \pkg{bayesGDS} package.  We should proceed to
+ this step only if \code{valid.scale==TRUE}.
 
-  
+ The \func{sample.GDS} function is the ``workhorse'' function of
+ \pkg{bayesGDS}.  Although the main advantage of the BD algorithm is
+ parallel sampling, each call to \func{bayes.GDS} uses only 1 core.
+ Thus, the argument \funcarg{n.draws} is the number of draws for that
+ particular call to \func{sample.GDS}. The other required arguments to
+ \func{sample.GDS} are the $M$-length vector of $\log\Phi(\theta|y)$,
+ the posterior mode $\theta^*$; the function that returns the log
+ posterior density; the functions that sample from, and compute the
+ log density of, the proposal distribution; parameters of the proposal distribution.
+
+ The \func{sample.GDS} function also takes some control parameters,
+ such as how often the algorithm should give a status report; a
+ \funcarg{thread.id} (useful for reporting); whether
+ the algorithm should \funcarg{announce} when a posterior sample is
+ accepted; and a starting random seed for that \func{sample.GDS} call.
+
+ If \func{sample.GDS} is run only once, then \funcarg{thread.id} will
+ default to 1, and \funcarg{seed} can be anything you want.  However,
+ if running \func{sample.GDS} for multiple batches, each starting seed
+ needs to be different.  In this example, we use the \func{foreach}
+ function to create \variable{n.batch} instances of \func{sample.GDS},
+ each of which is executed on a different processing core in parallel
+ with the others.  After all parallel runs of \func{sample.GDS} are
+ complete, we use a Map-Reduce construct to merge the results together
+ into a single output list.
+
+
+ The next code chunk shows the code for both parallel and serial
+ implementations.  In both cases, we want to collect
+ \variable{n.draws} total posterior samples.  The algorithm will give
+ up after \variable{max.tries} proposals for a single draw (to keep
+ the algorithm from running forever).  For the parallel
+ implementation, the batch size is the number of samples that each
+ instance of \func{sample.GDS} will collect.  Thus, the number of
+ batches \variable{n.batch} is the total number of draws needed, divided by the number of
+ draws in each batch.  In this example, we collect 20 total draws
+ using 10 cores, with each core responsible for 2 draws.  The order in
+ which the batches are returned does not matter.
+
 <<sampleGDS>>=
-@ 
+@
+
+\subsubsection{The output}
 
 Let's take a quick peak at the output list.
 
 <<strDraws>>=
-@ 
+@
 
-The \funcarg{draws} element has a posterior sample in each row.  The \funcarg{counts}
+The \funcarg{draws} element has a posterior sample in each row.  Each
+column is a variable.  The \funcarg{counts}
 vector contains the number of proposal draws that were necessary to
 accept that particular posterior draw.  This vector is needed to
 compute the log marginal likelihood (LML, see below), and to assess
@@ -787,7 +817,7 @@ the efficiency of the algorithm.  The \funcarg{gt.1} vector flags whether a
 threshold value was greater than 1.  This is an important check,
 because if any elements of that vector are 1, that means that the
 proposal density was still just a bit too tight.  If this is the case
-for only a couple of draws, it's probably not a bug deal.  If it is
+for only a couple of draws, it's probably not a big deal.  If it is
 true for a large number of draws, not only is the proposal density
 invalid, but something probably went wrong earlier in the algorithm.
 Maybe $M$ was too small.
@@ -798,7 +828,7 @@ population-level parameters.
 
 
 <<summary, collapse=TRUE>>=
-@ 
+@
 
 
 If any elements in \funcarg{counts} is NA, it means that the proposal count reached the
@@ -807,11 +837,24 @@ requires further investigation.
 
 \subsubsection{Log marginal likelihood}
 
+
+The log marginal likelihood (LML) is the likelihood of the data under
+the model, $\Ly$.  For better or worse, the LML is often used for model comparison (e.g.,
+computing Bayes factors).  As discussed in \citet{BraunDamien2015},
+there is no generally accepted method for computing the LML from MCMC
+output.  However, estimating the LML using the \func{LML} function in
+this package is straightforward.  All of the arguments to \func{LML}
+were used in earlier function calls, or returned by \func{sample.GDS}.
+
+
 <<LML>>=
-@ 
+@
 
 
+\section{Future development}
 
+The \pkg{bayesGDS} package remains incomplete.  Here are some
+improvements and enhancements that I am considering for future releases.
 
 Before continuing, we want to explain why we have not provided a
 ``black box'' function that can run the entire BD algorithm at
