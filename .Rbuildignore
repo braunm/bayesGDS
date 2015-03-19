@@ -15,3 +15,12 @@ data-raw/*
 README\.R
 ^NEWS\.md$
 ^cran-comments\.md$
+^.*\\.aux$
+^.*\\.bcf$
+^.*\\.log$
+^.*\\.run\.xml$
+^.*\\.synctex\.gz$
+^.*\\.blg$
+^.*\\.bbl$
+^.*\\.prv$
+vignette/cache*

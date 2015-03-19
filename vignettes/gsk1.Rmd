@@ -6,7 +6,7 @@ output:
   html_vignette:
     toc:  false
   pdf_vignette:
-    toc:  false	
+    toc:  false
 header-includes:
   \usepackage{amsmath}
 vignette: >
@@ -23,6 +23,7 @@ require(reshape2)
 require(plyr)
 require(dplyr)
 require(ggplot2)
+require(bayesGDS)
 set.seed(123)
 theme_set(theme_bw())
 ```

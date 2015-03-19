@@ -7,11 +7,11 @@
 \alias{binary.hess}
 \title{Binary choice example}
 \usage{
-binary.f(P, data, priors, order.row = FALSE)
+binary.f(P, data, priors)
 
-binary.grad(P, data, priors, order.row = FALSE)
+binary.grad(P, data, priors)
 
-binary.hess(P, data, priors, order.row = FALSE)
+binary.hess(P, data, priors)
 }
 \arguments{
   \item{P}{Numeric vector of length (N+1)*k.  First N*k
@@ -23,10 +23,6 @@ binary.hess(P, data, priors, order.row = FALSE)
 
   \item{priors}{List of named matrices inv.Omega and
   inv.Sigma}
-
-  \item{order.row}{Determines order of heterogeneous
-  coefficients in parameter vector. Affects sparsity
-  pattern of Hessian. See vignette.}
 }
 \value{
 Log posterior density, gradient and Hessian.

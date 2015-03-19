@@ -1,15 +1,14 @@
 Package: bayesGDS
 Type: Package
-Title: Braun and Damien algorithm for Scalable Rejection Sampling
+Title: Scalable Rejection Sampling for Bayesian Hierarchical Models
 Version: 0.6.0.9990
-Date: 2015-02-09
+Date: 2015-03-19
 Authors@R: person(family="Braun", given="Michael", role=c("aut","cre","cph"), email="braunm@smu.edu")
 URL: coxprofs.cox.smu.edu/braunm
-Description: This package contains functions to help users implement the Generalized Direct Sampling algorithm for Bayesian hierarchical models (Braun and Damien, 2015). GDS is useful for sampling from posterior distributions for which there is a large number of conditionally independent heterogeneous units.
+Description: This package contains functions to help users implement the Braun and Damien (2015) rejection sampling algorithm for Bayesian hierarchical models.  The algorithm generates posterior samples in parallel, and is scalable when the individual units are conditionally independent.
 License: MPL (== 2.0)
 Depends: R (>= 3.1.2),
-	 Matrix (>= 1.1.5),
-	 compiler
+	 Matrix (>= 1.1.5)
 Suggests: sparseHessianFD(>= 0.2.0),
 	  sparseMVN(>= 0.2.0),
 	  mvtnorm,
