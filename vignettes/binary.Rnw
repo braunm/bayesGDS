@@ -9,7 +9,7 @@
 \usepackage{mathpazo}
 \usepackage{amsmath}
 \usepackage{amsfonts}
-\usepackage{geometry}
+\usepackage[margin=1in]{geometry}
 \usepackage{placeins} %% for \FloatBarrier
 \usepackage{subcaption}
 
@@ -18,7 +18,7 @@
 
 \usepackage{parskip}
 \usepackage{setspace}
-\linespread{1.2}
+\linespread{1.1}
 
 %%make knitr environment line spacing separate from LaTeX
 \renewenvironment{knitrout}{\begin{singlespace}}{\end{singlespace}}
@@ -178,7 +178,7 @@ algorithm in mind.
   \centering
   \begin{tabular}{p{1.5in} p{3in} p{1in}}
     Package&Specific use for the BD algorithm&Relevant lines in
-                                               Algorithm\\
+                                               BD Algorithm\\
 \hline
     \pkg{Matrix}&Defines classes to store sparse matrices in a compressed
             format, and functions to work with, and to decompose,
@@ -222,7 +222,6 @@ The model is fully specified by $\mathcal{D}(\theta,y)$, which is
 equivalent to the posterior density, up to a normalizing constant $1/\Ly$.
 
 If the heterogeneous units are conditionally independent, the data likelihood can be factored as
-
 \begin{align}
 f(y|\theta)=\prod_{i=1}^Nf_i\left(y_i|\beta_i,\alpha\right)
 \end{align}
@@ -548,15 +547,12 @@ probability models.  Therefore, the log posterior density, ignoring any normaliz
 -\frac{1}{2}\mu'\Omega_0^{-1}\mu
 \end{align}
 
-\subsection{Computing function values on sample data}
-
-\subsubsection{Functions, sample data, and priors for the example}
+\subsection{Functions, sample data, and priors for the example}
 
 The \pkg{bayesGDS} package includes a simulated dataset for $N$ households and $k$
 covariates per household.  A household makes $Y$ purchases out of $T$
 opportunities.  The purchase probability for each household depends on
-a covariate matrix $X$.  So let's start by loading the data (the name
-of the data set is "binary"), and setting hyperprior values for $\Sigma^{-1}$ and $\Omega^{-1}$.
+a covariate matrix $X$.  So let's start by loading the data, and setting hyperprior values for $\Sigma^{-1}$ and $\Omega^{-1}$.
 
 <<data>>=
 @
@@ -573,7 +569,7 @@ Hessian, in a sparse compressed format.
 <<startingVals>>=
 @
 
-\subsubsection{Using sparseHessianFD when the Hessian is unknown}
+\subsection{Using sparseHessianFD when the Hessian is unknown}
 
 Hessians can be difficult to derive analytically, but Hessians for hierarchical models
 have predictable sparsity patterns. The
@@ -609,23 +605,19 @@ posterior density, gradient and Hessian as follows:
 <<usingFD>>=
 @
 
-In Figure \ref{fig:hessUpperLeft}, we can see that the upper-left
+The upper-left
   corner of the Hessian is sparse (the entire Hessian is too big to
-  print).  We can also confirm that \code{FD[["hessian"]]} returns the
+  print), and \code{FD\$hessian} returns the
   same matrix as \code{binary.hess}.
 
-\begin{figure}
 <<hessUpperLeft, collapse=TRUE>>=
 @
-\caption{A sparse Hessian}\label{fig:hessUpperLeft}
-\end{figure}
-
 
 \section{Running the algorithm}\label{sec:runAlgorithm}
 
 Now it's time to estimate the posterior distributions of the model parameters.
 
-\subsubsection{Finding posterior mode}
+\subsection{Finding the posterior mode}
 
 We use the \pkg{trustOptim} package, because it exploits the sparsity of
 the Hessian of the objective function, and it uses the gradient of the
@@ -641,7 +633,7 @@ negative for maximization.
 @
 
 
-\subsubsection{Defining proposal functions}
+\subsection{Defining proposal functions}
 
 Next, we define a function to sample from a proposal density, and a
 function to compute the log density of a proposal draw.  These
@@ -655,20 +647,24 @@ precision matrix.  That means we need some wrapper functions.
 <<defPropFuncs>>=
 @
 
-Next, we put the proposal parameters in a list. The proposal mean is
+The proposal mean is
 the posterior mean.  The proposal precision is the negative Hessian,
-times a scaling factor.
+times a scaling factor.  The \func{Cholesky} function is defined in
+the \pkg{Matrix} package.  Do not use the base \proglang{R} function
+\func{chol}, which is not designed for sparse matrices, and cannot be
+used by the \pkg{sparseMVN} functions.
 
 
 <<propParams>>=
 @
 
 
-\subsubsection{Side note:  running the algorithm in parallel}
+
+\subsection{Side note:  running the algorithm in parallel}
 
 An advantage of BD over MCMC is that both proposal and posterior
 samples can be generated in parallel.  There are a number of different
-mechanisms available in \proglang{R} for running jobs in parallel.  One that I
+mechanisms available in \proglang{R} for running jobs in parallel.  One that we
 think is easy to use is based on the \pkg{parallel} package.  In the
 next code chunk, I allocate 10 cores for parallel processing, and set
 a random seed for simulating random variables (more on that later).
@@ -682,7 +678,7 @@ cores to 1.
 
 
 
-\subsubsection{Estimating density of threshold values}
+\subsection{Estimating the density of threshold values}
 The next step in the BD algorithm is to simulate an empirical
 approximation to the cumulative distribution of $\Phi(\theta|y)$.  We sample $M$
 times from the proposal distribution, and compute
@@ -711,57 +707,54 @@ too "tight."  We think that time invested in ``optimizing'' the
 proposal distribution is not a well-used resource.
 
 
-\subsubsection{Posterior draws via rejection sampling}
+\subsection{Posterior draws via rejection sampling}
 
  \emph{Finally} we can start sampling from the posterior density,
  using functions in the \pkg{bayesGDS} package.  We should proceed to
  this step only if \code{valid.scale==TRUE}.
 
  The \func{sample.GDS} function is the ``workhorse'' function of
- \pkg{bayesGDS}.  Although the main advantage of the BD algorithm is
- parallel sampling, each call to \func{bayes.GDS} uses only 1 core.
- Thus, the argument \funcarg{n.draws} is the number of draws for that
+ \pkg{bayesGDS}.  Each call to \func{sample.GDS} collects posterior
+ samples serially.  The argument \funcarg{n.draws} is the number of draws for that
  particular call to \func{sample.GDS}. The other required arguments to
  \func{sample.GDS} are the $M$-length vector of $\log\Phi(\theta|y)$,
  the posterior mode $\theta^*$; the function that returns the log
  posterior density; the functions that sample from, and compute the
- log density of, the proposal distribution; parameters of the proposal distribution.
+ log density of, the proposal distribution; parameters of the proposal
+ distribution.  See the \pkg{bayesGDS} package documentation for
+ descriptions of the function arguments.
 
- The \func{sample.GDS} function also takes some control parameters,
- such as how often the algorithm should give a status report; a
- \funcarg{thread.id} (useful for reporting); whether
- the algorithm should \funcarg{announce} when a posterior sample is
- accepted; and a starting random seed for that \func{sample.GDS} call.
+ The following code chunk is a single-core implementation.
 
- If \func{sample.GDS} is run only once, then \funcarg{thread.id} will
- default to 1, and \funcarg{seed} can be anything you want.  However,
- if running \func{sample.GDS} for multiple batches, each starting seed
- needs to be different.  In this example, we use the \func{foreach}
- function to create \variable{n.batch} instances of \func{sample.GDS},
- each of which is executed on a different processing core in parallel
- with the others.  After all parallel runs of \func{sample.GDS} are
- complete, we use a Map-Reduce construct to merge the results together
- into a single output list.
-
-
- The next code chunk shows the code for both parallel and serial
- implementations.  In both cases, we want to collect
- \variable{n.draws} total posterior samples.  The algorithm will give
- up after \variable{max.tries} proposals for a single draw (to keep
- the algorithm from running forever).  For the parallel
- implementation, the batch size is the number of samples that each
- instance of \func{sample.GDS} will collect.  Thus, the number of
- batches \variable{n.batch} is the total number of draws needed, divided by the number of
- draws in each batch.  In this example, we collect 20 total draws
- using 10 cores, with each core responsible for 2 draws.  The order in
- which the batches are returned does not matter.
-
-<<sampleGDS>>=
+<<sampleGDS_serial>>=
 @
 
-\subsubsection{The output}
 
-Let's take a quick peak at the output list.
+We can use the \pkg{foreach}
+package to run \func{sample.GDS} in parallel on multiple processing
+units.  Each instance of \func{sample.GDS} is responsible for a batch of
+posterior draws.  If we need \variable{n.draws} samples from the
+posterior, and we want to run \variable{n.batch} instances of
+\func{sample.GDS}, then each instance will collect
+\variable{batch.size} samples.  The return object of \func{foreach} is
+a list, with each element being a return object of \func{sample.GDS}.
+The order in which the \func{sample.GDS} objects are returned does not matter.
+Samples can be identified by batch with the \funcarg{thread.id}
+argument.  It is important to start each instance with a different
+random seed, which we specify in the \funcarg{seed} argument.
+
+When all processing cores have finished collecting their samples, we
+combine the list elements using a Map-Reduce construct.
+
+<<sampleGDS_parallel, echo = TRUE, results = 'asis'>>=
+@
+
+
+
+
+\subsection{The output}
+
+Let's take a look at the \func{sampleGDS} output.
 
 <<strDraws>>=
 @
@@ -784,7 +777,6 @@ You can get summaries and quantiles for your parameters of interest in
 the standard way.  In this case, let's just summarize the
 population-level parameters.
 
-
 <<summary, collapse=TRUE>>=
 @
 
@@ -793,7 +785,7 @@ If any elements in \funcarg{counts} is NA, it means that the proposal count reac
 value in \funcarg{max.tries} without an acceptance.  This would suggest an inefficient sampler that
 requires further investigation.
 
-\subsubsection{Log marginal likelihood}
+\section{Estimating the log marginal likelihood}
 
 
 The log marginal likelihood (LML) is the likelihood of the data under
@@ -802,7 +794,8 @@ computing Bayes factors).  As discussed in \citet{BraunDamien2015},
 there is no generally accepted method for computing the LML from MCMC
 output.  However, estimating the LML using the \func{LML} function in
 this package is straightforward.  All of the arguments to \func{LML}
-were used in earlier function calls, or returned by \func{sample.GDS}.
+were used in earlier function calls, or returned by
+\func{sample.GDS}.
 
 
 <<LML>>=
@@ -812,34 +805,18 @@ were used in earlier function calls, or returned by \func{sample.GDS}.
 \section{Future development}
 
 The \pkg{bayesGDS} package remains incomplete.  Here are some
-improvements and enhancements that I am considering for future releases.
-
-Before continuing, we want to explain why we have not provided a
-``black box'' function that can run the entire BD algorithm at
-once.  There are a few reasons for this.
+improvements and enhancements that are under consideration for future releases.
 
 \begin{enumerate}
-\item Different tools may be better suited for
-different models in different phases of the estimation algorithm.  For
-example, a posterior distribution whose log density has a dense Hessian
-may not need the functionality of \pkg{sparseHessianFD} or
-\pkg{sparseMVN};
-\item  In some of our other work, we found that
-a focus on finding the posterior mode, before continuing on to the
-other steps, has helped us diagnose other problems with the model
-(e.g., ridges in the log posterior density surface);
-\item Selecting a scaling factor on the Hessian at the posterior mode
-  remains a manual adaptive process.  We do not yet have an optimal
-  algorithm for that step; and
-  \item We do not want to hide any problems with the algorithm that
-    may arise under some kinds of models.
+\item A wrapper function for the entire BD algorithm;
+\item Functions to summarize and display the output;
+\item Options to retain a subset of variables and discard others
+  (e.g., keep only population-level parameters);
+\item A simpler interface for parallel sampling;
+\item More examples of different kinds of applications;
 \end{enumerate}
 
 
-We think that by splitting the algorithm into different phases, the
-user will be able to better optimize the algorithm for the
-characteristics of the model, and to more easily diagnose problems
-when things go wrong.
 
 \printbibliography
 
