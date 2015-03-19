@@ -10,8 +10,6 @@
 
 ##----setup2
 require(Matrix, quietly=TRUE)
-
-
 NN <- 6
 kk <- 2
 pp <- 2
@@ -101,9 +99,7 @@ hess <- FD$hessian(start)
 
 
 ##----hessUpperLeft
-print(hess[1:9,1:9], digits=3)
-
-## ---- hessTest
+print(hess[1:6,1:6], digits=3)
 all.equal(hess, d2f)
 
 
@@ -129,14 +125,12 @@ var.names <- names(theta.star)
 require(sparseMVN, quietly=TRUE)
 rmvn.sparse.wrap <- function(n.draws, params) {
 ## sample MVN with sparse precision matrix
-
     res <- rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
     return(res)
 }
 
 dmvn.sparse.wrap <- function(d, params) {
 ## MVN density with sparse precision
-
     res <- dmvn.sparse(d, params[["mean"]], params[["CH"]], prec=TRUE)
     return(res)
 }
@@ -149,7 +143,6 @@ chol.hess <- Cholesky(-scale*hess)
 prop.params <- list(mean = theta.star, CH = chol.hess)
 
 ##----parallelSetup
-
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
 if(run.par) registerDoParallel(cores=10) else registerDoParallel(cores=1)
@@ -162,12 +155,10 @@ set.seed(seed.id)
 M <- 10000  ## proposal draws
 log.c1 <- FD$fn(theta.star)
 log.c2 <- dmvn.sparse.wrap(theta.star, prop.params)
-
 draws.m <- as(rmvn.sparse.wrap(M,prop.params),"matrix")
 log.post.m <- plyr::aaply(draws.m, 1, FD$fn, .parallel=run.par)
 log.prop.m <- dmvn.sparse.wrap(draws.m, params=prop.params)
 log.phi <- log.post.m - log.prop.m + log.c2 - log.c1
-
 valid.scale <- all(log.phi <= 0)
 cat("Are all log.phi <= 0?  ",valid.scale,"\n")
 
@@ -180,7 +171,6 @@ cat("Are all log.phi <= 0?  ",valid.scale,"\n")
 
 n.draws <- 20  ## total number of draws needed
 max.tries <- 100000  ## to keep sample.GDS from running forever
-
 if (valid.scale) {
    if (run.par) {
    ## running in parallel, 1 sample per core
@@ -237,13 +227,9 @@ if (valid.scale) {
                        fn.dens.prop=dmvn.sparse.wrap,
                        prop.params=prop.params)
     }
-    ## Section H:  Compute log marginal likelihood
-
     acc.rate <- 1/mean(draws$counts)
-
     dimnames(draws$draws) <- list(iteration=1:NROW(draws[["draws"]]),
                                   variable=var.names)
-
     draws[["LML"]] <- LML
     draws[["acc.rate"]] <- acc.rate
 }
