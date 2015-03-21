@@ -633,10 +633,13 @@ Now it's time to estimate the posterior distributions of the model parameters.
 
 \subsection{Finding the posterior mode}
 
-The \func{trust.optim} function in the \pkg{trustOptim} package exploits the sparsity of
-the Hessian of the objective function, and it uses the gradient of the
-objective function to determine when it has converged to a local
-optimum.  For the \funcarg{fn}, \funcarg{gr} and \funcarg{hs}
+The posterior mode $\theta^*$ is the maximum of $\log\Dy$.  If
+$\theta$ is unconstrained, then the norm of the gradient of
+$\log\mathcal{D}(\theta^*|y)$ is zero.  The \func{trust.optim}
+function uses curvature information from the Hessian to iteratively
+converge to $\theta^*$.  Unlike other nonlinear optimization routines
+for \proglang{R}, \func{trust.optim} takes the Hessian as a sparse
+\class{dgCMatrix} object, so it is scalable for large problems.  For the \funcarg{fn}, \funcarg{gr} and \funcarg{hs}
 arguments, we provide the corresponding member functions from
 \variable{FD}, which we constructed using \func{sparseHessianFD.new}.  Details
 on the control list are available in the \pkg{trustOptim} documentation.
@@ -650,13 +653,15 @@ negative for maximization.
 
 \subsection{Defining proposal functions}
 
-Next, we define a function to sample from a proposal density, and a
-function to compute $\log\Dy$ for each proposal draw.  These
-functions take a variable vector as the first argument, and list of
-proposal parameters as the second argument.  As discussed in Section \ref{sec:MVN}, the
+Next, we defines functions to sample from a proposal distribution $\Gtheta$, and
+compute its density.  The \func{sample.GDS} function will require the
+proposal functions to take a variable vector as the first argument, and list of
+proposal parameters as the second argument.  That means we need some
+wrapper functions.  Since the Hessian is sparse, we can use the
+\pkg{sparseMVN} package for an MVN proposal distribution. As discussed in Section \ref{sec:MVN}, the
 functions in the \pkg{sparseMVN} package require two parameters:  a mean
 vector, and a Cholesky decomposition of either the covariance or
-precision matrix.  That means we need some wrapper functions.
+precision matrix.
 
 
 <<defPropFuncs>>=
@@ -680,21 +685,18 @@ An advantage of BD over MCMC is that both proposal and posterior
 samples can be generated in parallel.  There are a number of different
 mechanisms available in \proglang{R} for running jobs in parallel.  One that we
 think is easy to use is based on the \pkg{parallel} package.  In the
-next code chunk, I allocate 10 cores for parallel processing, and set
+next code chunk, we allocate 10 cores for parallel processing, and set
 a random seed for simulating random variables (more on that later).
-If you do not want to run the code in parallel, change the flag to
-\code{run.par <- FALSE}.  This will change the number of allocated
-cores to 1.
+The \variable{run.par} flag controls whether sampling is done serially
+or in parallel.
 
 <<parallelSetup>>=
 @
 
 
-
-
 \subsection{Estimating the density of threshold values}
 The next step in the BD algorithm is to simulate an empirical
-approximation to the cumulative distribution of $\Phi(\theta|y)$.  We sample $M$
+approximation to the distribution of $\Phi(\theta|y)=\frac{\Dy}{c_1}\frac{c_2}{\Gtheta}$.  We sample $M$
 times from the proposal distribution, and compute
 $\log\Phi(\theta|y)$ for each proposal sample.  Following the notation
 in \citet{BraunDamien2015}, \variable{log.c1} is the log posterior density, and
