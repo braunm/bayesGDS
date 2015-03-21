@@ -9,7 +9,7 @@
 \usepackage{mathpazo}
 \usepackage{amsmath}
 \usepackage{amsfonts}
-\usepackage[margin=1in]{geometry}
+\usepackage[margin=1.5in]{geometry}
 \usepackage{placeins} %% for \FloatBarrier
 \usepackage{subcaption}
 
@@ -121,6 +121,19 @@
 
 \maketitle
 
+\begin{abstract}
+This note is a ``practitioner's guide'' to estimating Bayesian
+hierarchical models using the sampling algorithm in
+\citet{BraunDamien2015}.  The \pkg{bayesGDS} package for \proglang{R}
+provides functions for running the rejection sampling phase of the
+algorithm.  Three other packages, \pkg{trustOptim}, \pkg{sparseMVN}
+and \pkg{sparseHessianFD}, are also discussed, and are used in the
+example.  These packages are generally useful for problems with sparse
+Hessians, but were written with the \citet{BraunDamien2015} algorithm
+in mind.
+\end{abstract}
+\vspace{1em}
+
 <<setup1, echo=FALSE, cache=FALSE>>=
 library(methods, quietly = TRUE)
 library(bayesGDS, quietly = TRUE)
@@ -128,7 +141,6 @@ knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#"
                            message=FALSE, tidy=FALSE, cache = TRUE) #
 knitr::read_chunk("binary_chunks.R")
 @
-
 
 \citet{BraunDamien2015}, henceforth known as BD, introduce an
 alternative to MCMC for sampling from posterior distributions. The
@@ -470,40 +482,35 @@ value.
 
 The BD algorithm requires a careful selection of a proposal density.
 A MVN distribution, with a mean at $\theta^*$ and a precision matrix
-equal to the negative Hessian at $\theta^*$, times a scaling constant,
-is a reasonable choice for many model.  However, when the covariance
+equal to the negative Hessian, times a scaling constant,
+is a reasonable choice for many models.  However, when the covariance
 matrix is dense, the complexity of sampling from, and
 computing the density of, an MVN is quadratic in the number of
-variables.  Also, converting a Hessian to a covariance matrix involves
-an explicit matrix inversion.  Even if the Hessian is sparse, its
-inverse may not be.
+variables.
 
-Another potential source of poor scalability is in sampling from, and
-computing the log density of, a multivariate normal (MVN)
-distribution. The \func{rmvnorm} and \func{dmvnorm} functions in the
-\pkg{mvtnorm} package are inefficient
-in the context of the BD algorithm for three reasons.
+The \pkg{mvtnorm} provides the functions \func{rmvnorm} to sample from
+the MVN distribution, and \func{dmvnorm} to compute the density.  Both
+arguments require the user to provide a dense covariance matrix as one of
+the arguments. Since the negative Hessian (the precision matrix) is the \emph{inverse} of the
+covariance, the \pkg{mvtnorm} functions require an explicit matrix
+inversion. Even if the Hessian is sparse, its inverse may not be.
+Also, each
+call to \func{rmvnorm} or \func{dmvnorm} involves matrix
+factorization, and linear operations on the factors, neither of which
+are scalable when the matrix is dense.
 
-\begin{enumerate}
-\item They require the covariance matrix as one of the arguments, meaning that
-the negative Hessian must be inverted explicitly.
-\item They do not
-exploit the sparsity of the Hessian for computational gain; and
-\item The \func{rmvnorm} and \func{dmvnorm} functions factor the
-  covariance matrix every time the function is called, even if the matrix has not changed.
-\end{enumerate}
-
-The \pkg{sparseMVN} package addresses these issues.  The \func{rmvn.sparse} and
-\func{dmvn.sparse} functions take, as one of the arguments, the Cholesky
-decomposition of either a sparse covariance or sparse precision
-matrix.  Thus, the user can use either the covariance
-or precision matrix, depending on which is more convenient.  The
-Cholesky decomposition is provided as a \class{Cholesky} object, which
-is a sparse, compressed representation that is defined in the \pkg{Matrix} package. Since the size
+The \pkg{sparseMVN} package is a solution to these problems.  Instead of
+requiring a covariance matrix as one of the arguments, the \func{rmvn.sparse} and
+\func{dmvn.sparse} functions take the Cholesky
+decomposition of a sparse covariance or sparse precision
+matrix.  Thus, the user can choose either the covariance
+or precision matrix, depending on which is more convenient.  The sparse
+Cholesky decomposition must be an object of the \class{Cholesky} object, which
+is defined in the \pkg{Matrix} package, and returned by the
+\func{Cholesky} function.  Since the size
 of the sparse Hessian grows only linearly with the size of the
-dataset, the \pkg{sparseMVN} package is a scalable alternative for working
-with an MVN.  More details are available in the \pkg{sparseMVN}
-documentation and vignette, as well as in the example in \ref{sec:runAlgorithm}.
+dataset, \func{rmvn.sparse} and \func{dmvn.sparse} are scalable
+alternatives to \func{rmvnorm} and \func{dmvnorm}.
 
 \section{Example:  hierarchical binary choice}\label{sec:example}
 
@@ -532,7 +539,7 @@ $k-$dimensional vectors, and the total number of unknown variables in
 the model is $(N+1)k$.
 
 In this model, we will make an assumption of \emph{conditional
-independence} across households.   A household's purchase count $y_i$
+  independence} across households.   A household's purchase count $y_i$
 depends on that household's $\beta_i$, but not the
 parameters of any other household, $\beta_j$, conditional on other
 population level parameters.  Since $\mu$ and $\Sigma$ depend on
@@ -566,8 +573,8 @@ The function \func{binary.f} returns the unnormalized log
 posterior density of this model, $\log\Dy$, evaluated at the vector passed as the
 first argument.  This function takes two additional named arguments,
 \funcarg{data} and \funcarg{priors}.  The
-function \funcarg{binary.grad} returns the gradient, and \funcarg{binary.hess} returns a
-Hessian, in a sparse compressed format.
+function \funcarg{binary.grad} returns the gradient, and
+\funcarg{binary.hess} returns the sparse Hessian (as a \class{dgCMatrix} object).
 
 
 <<startingVals>>=
@@ -575,10 +582,10 @@ Hessian, in a sparse compressed format.
 
 \subsection{Using sparseHessianFD when the Hessian is unknown}
 
-Hessians can be difficult to derive analytically, but Hessians for hierarchical models
-have predictable sparsity patterns. The
+Hessians can be difficult to derive analytically, but for hierarchical
+models, they have predictable sparsity patterns. The
 \pkg{sparseHessianFD} package simplifies numerical approximation of a
-sparse Hessian, and should be used if exact
+sparse Hessian, and can be used if exact
 methods are unavailable (see Section \ref{sec:derivatives}.   The
 \func{sparseHessianFD.new} function is a wrapper around the
 constructor for the \class{sparseHessianFD} class, and returns an
@@ -588,10 +595,12 @@ Hessian. The sparsity pattern is defined
 by integer vectors of the row and column indices of the non-zero elements.
 
 A straightforward
-way to generate the sparsity pattern is to build a sparse integer or logical matrix,
-and then use the \func{Matrix.to.Coord} function from
-\pkg{sparseHessianFD}.  The \func{Matrix.to.Coord} function returns a
-list of two integer vectors that can be passed to \func{sparseHessianFD.new}.
+way to generate the sparsity pattern is to build a sparse integer,
+logical, or pattern matrix (using the \pkg{Matrix} package) that has
+the same sparsity pattern as the Hessian. The \func{Matrix.to.Coord}
+function from the
+\pkg{sparseHessianFD} will extract the row and columns of the
+non-zeros, and return them in a list of two integer vectors.
 
 <<hessStruct>>=
 @
@@ -601,10 +610,11 @@ Now we can construct the \class{sparseHessianFD} object.
 <<sparseHessianFD>>=
 @
 
-One advantage to using \class{sparseHessianFD} is that any
-additional arguments that need to be passed to the objective function are stored within the object. This means that we do not need to repeatedly pass
-the data and prior arguments.  So now, we can compute the log
-posterior density, gradient and Hessian as follows:
+One advantage to using \pkg{sparseHessianFD} is that
+additional arguments that need to be passed to the objective function
+(e.g., data or prior parameters) are stored within the object. The
+member functions \func{fn}, \func{gr} and \func{hessian} take only
+one argument.
 
 <<usingFD>>=
 @
@@ -623,11 +633,12 @@ Now it's time to estimate the posterior distributions of the model parameters.
 
 \subsection{Finding the posterior mode}
 
-We use the \pkg{trustOptim} package, because it exploits the sparsity of
+The \func{trust.optim} function in the \pkg{trustOptim} package exploits the sparsity of
 the Hessian of the objective function, and it uses the gradient of the
 objective function to determine when it has converged to a local
 optimum.  For the \funcarg{fn}, \funcarg{gr} and \funcarg{hs}
-arguments, we provide the member functions of the FD object.  Details
+arguments, we provide the corresponding member functions from
+\variable{FD}, which we constructed using \func{sparseHessianFD.new}.  Details
 on the control list are available in the \pkg{trustOptim} documentation.
 The most important control option to mention here is that
 \funcarg{function.scale.factor} must be positive for minimization, and
@@ -640,7 +651,7 @@ negative for maximization.
 \subsection{Defining proposal functions}
 
 Next, we define a function to sample from a proposal density, and a
-function to compute the log density of a proposal draw.  These
+function to compute $\log\Dy$ for each proposal draw.  These
 functions take a variable vector as the first argument, and list of
 proposal parameters as the second argument.  As discussed in Section \ref{sec:MVN}, the
 functions in the \pkg{sparseMVN} package require two parameters:  a mean
@@ -652,11 +663,10 @@ precision matrix.  That means we need some wrapper functions.
 @
 
 The proposal mean is
-the posterior mean.  The proposal precision is the negative Hessian,
-times a scaling factor.  The \func{Cholesky} function is defined in
-the \pkg{Matrix} package.  Do not use the base \proglang{R} function
-\func{chol}, which is not designed for sparse matrices, and cannot be
-used by the \pkg{sparseMVN} functions.
+the posterior mean, $\theta^*$.  The proposal precision is the negative Hessian,
+times a scaling factor.  Use \func{Cholesky} (defined in
+\pkg{Matrix}),  and not the base \proglang{R} function
+\func{chol}, which is incompatible with \pkg{sparseMVN}.
 
 
 <<propParams>>=
@@ -699,15 +709,16 @@ the log posterior density for each proposal draw.  This step will run in paralle
 @
 
 The last two lines in the previous code chunk are checks that
-$\Phi(\theta|y)\leq 1$ for all of the proposal draws.  If the check fails, then
+$\log\Phi(\theta|y)\leq 0$ for all of the proposal draws.  If the check fails, then
 the proposal distribution is invalid.  Make the proposal distribution
-more diffuse by reducing the scaling factor on the negative Hessian,
-and try again.
+more diffuse by reducing the scaling factor on the negative
+Hessian. Then, try again.
 
-Helpful hint:  If $M$ is too low, there may not be enough proposal draws to confirm
-that the proposal distribution is sufficiently diffuse.  This can
+Helpful hint:  If $M$ is too small, there may not be enough proposal draws to confirm
+that the proposal distribution is sufficiently diffuse, even if
+$\log\Phi(\theta|y)\leq 0$ for all of those $M$ proposals. This can
 cause problems later.  So don't try to make the proposal distribution
-too "tight."  We think that time invested in ``optimizing'' the
+too ``tight.''  Time invested in ``optimizing'' the
 proposal distribution is not a well-used resource.
 
 
@@ -825,3 +836,5 @@ improvements and enhancements that are under consideration for future releases.
 \printbibliography
 
 \end{document}
+
+%%  LocalWords:  dmvnorm
