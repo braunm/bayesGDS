@@ -172,7 +172,8 @@ a multivariate normal (MVN) random variable.  These are functions and packages w
 most \proglang{R} users are familiar, so it is understandable that the
 barrier to adoption of algorithms that fail when using them would be high.
 
-Fortunately, there are better alternatives for running the BD algorithm on hierarchical models. These packages are listed in Table \ref{tab:packages}, and are
+Fortunately, there are better alternatives for running the BD
+algorithm on hierarchical models. These packages are listed in Table \ref{tab:packages}, and are
 required to run the code in this vignette.  The \pkg{Matrix} and \pkg{sparseHessianFD} define
 classes for working with sparse matrices.  The
 \pkg{sparseMVN} and \pkg{trustOptim} packages respectively provide sampling and
@@ -696,12 +697,11 @@ or in parallel.
 
 \subsection{Estimating the density of threshold values}
 The next step in the BD algorithm is to simulate an empirical
-approximation to the distribution of $\Phi(\theta|y)=\frac{\Dy}{c_1}\frac{c_2}{\Gtheta}$.  We sample $M$
+approximation to the distribution of
+$\Phi(\theta|y)=\dfrac{\Dy}{c_1}\dfrac{c_2}{\Gtheta}$, where
+$c_1=\mathcal{D}(\theta^*,y)$ and $c_2=g(\theta^*)$. We sample $M$
 times from the proposal distribution, and compute
-$\log\Phi(\theta|y)$ for each proposal sample.  Following the notation
-in \citet{BraunDamien2015}, \variable{log.c1} is the log posterior density, and
-\variable{log.c2} is the log of the proposal density, both evaluated at the
-posterior mode $\theta^*$.
+$\log\Phi(\theta|y)$ for each proposal sample.
 
 The next code chunk uses the \func{aaply} function from the \pkg{plyr} package to compute
 the log posterior density for each proposal draw.  This step will run in parallel if
@@ -716,7 +716,7 @@ the proposal distribution is invalid.  Make the proposal distribution
 more diffuse by reducing the scaling factor on the negative
 Hessian. Then, try again.
 
-Helpful hint:  If $M$ is too small, there may not be enough proposal draws to confirm
+If $M$ is too small, there may not be enough proposal draws to confirm
 that the proposal distribution is sufficiently diffuse, even if
 $\log\Phi(\theta|y)\leq 0$ for all of those $M$ proposals. This can
 cause problems later.  So don't try to make the proposal distribution
@@ -747,8 +747,8 @@ proposal distribution is not a well-used resource.
 @
 
 
-We can use the \pkg{foreach}
-package to run \func{sample.GDS} in parallel on multiple processing
+The \func{foreach}
+function runs \func{sample.GDS} in parallel on multiple processing
 units.  Each instance of \func{sample.GDS} is responsible for a batch of
 posterior draws.  If we need \variable{n.draws} samples from the
 posterior, and we want to run \variable{n.batch} instances of
@@ -765,8 +765,6 @@ combine the list elements using a Map-Reduce construct.
 
 <<sampleGDS_parallel, echo = TRUE, results = 'asis'>>=
 @
-
-
 
 
 \subsection{The output}

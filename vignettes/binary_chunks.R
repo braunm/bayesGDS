@@ -129,14 +129,14 @@ prop.params <- list(mean = theta.star, CH = chol.hess)
 ##----parallelSetup
 library(doParallel, quietly=TRUE)
 run.par <- TRUE
-if(run.par) registerDoParallel(cores=10) else registerDoParallel(cores=1)
+if(run.par) registerDoParallel(cores=2) else registerDoParallel(cores=1)
 seed.id <- 123
 set.seed(seed.id)
 
 
 
 ##----proposals
-M <- 20000  ## proposal draws
+M <- 10000  ## proposal draws
 log.c1 <- FD$fn(theta.star)
 log.c2 <- dmvn.sparse.wrap(theta.star, prop.params)
 draws.m <- as(rmvn.sparse.wrap(M,prop.params),"matrix")
@@ -148,7 +148,7 @@ stopifnot(valid.scale)
 
 
 ##----sampleGDS_serial
-n.draws <- 20  ## total number of draws needed
+n.draws <- 5  ## total number of draws needed
 max.tries <- 100000  ## to keep sample.GDS from running forever
 if (!run.par) {
     draws <- sample.GDS(n.draws = n.draws,
