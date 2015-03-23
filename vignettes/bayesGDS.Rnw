@@ -312,7 +312,7 @@ starting value from a vector of standard normal random variates.
                                 inv.Sigma=inv.Sigma, T=T)
 
   get.f.wrap <- function(x) return(obj$fn(x))
-  get.df.wrap <- function(x) return(obj$gr(x))
+  get.df.wrap <- function(x) return(obj$gr(x)) %$
   get.hessian.wrap <- function(x) return(obj$hessian(x))
 \end{CodeInput}
 
