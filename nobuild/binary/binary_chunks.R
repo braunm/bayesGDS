@@ -15,6 +15,7 @@ nnz2 <- Q*kk^2 + pp^2 + 2*Q*kk*pp
 nnz2LT <- Q*kk*(kk+1)/2 + pp*(pp+1)/2 + Q*kk*pp
 
 
+
 ##----pattern1
 MM <- as(kronecker(diag(NN),matrix(1,kk,kk)),"lMatrix")
 MM <- rBind(MM, Matrix(TRUE,pp,NN*kk))
@@ -163,8 +164,8 @@ if (!run.par) {
 
 ##----sampleGDS_parallel
 if (run.par) {
-    batch.size <- 2
-    n.batch <- floor(n.draws / batch.size)
+    n.batch <- 10
+    batch.size <- ceiling(n.draws / n.batch)
     draws.list <- foreach(i=1:n.batch, .inorder=FALSE) %dopar% sample.GDS(
         n.draws = n.draws,
         log.phi = log.phi,

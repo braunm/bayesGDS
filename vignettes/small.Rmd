@@ -6,7 +6,7 @@ output:
   html_vignette:
     toc:  false
   pdf_vignette:
-    toc:  false	
+    toc:  false
 header-includes:
   \usepackage{amsmath}
 vignette: >
@@ -20,10 +20,28 @@ Initialization
 ```{r}
 require(mvtnorm)
 require(MCMCpack)
+require(bayesGDS)
 set.seed(123)
-x <- rnorm(20, mean=100, sd=5)
 ```
-Functions
+
+
+This vignette is a test case of how to use the Braun and Damien (2015) algorithm to estimate a univariate posterior distribution.
+
+The model is
+
+$$
+x\sim N(\mu, \sigma^2)\\
+\mu\sim N(0, 1000^2)\\
+\sigma \sim Unif(0,100)\\
+$$
+
+The simulated dataset is 20 observations of $x$.  The true mean of $x$ is 100, and the standard deviation is 5.
+```{r}
+x <- rnorm(20, mean=100, sd=5)
+nX <- length(x)
+```
+
+The log data likelihood, log prior, and log posterior are computed by the following functions.  Since $\sigma$ must be positive, we estimate $\log\sigma$ instead.
 ```{r}
 logL <- function(theta){
     sum(dnorm(x, mean=theta[1], sd=exp(theta[2]), log=TRUE))
@@ -38,25 +56,12 @@ logPrior <- function(theta){
 logPosterior <- function(theta){
     logL(theta) + logPrior(theta)
 }
-
-## proposal functions
-logg <- function(theta, prop.params){
-    dmvnorm(theta,
-            mean=prop.params[[1]], sigma=prop.params[[2]],
-            log=TRUE)
-}
-
-draw.g <- function(N, prop.params){
-    rmvnorm(N, mean=prop.params[[1]], sigma=prop.params[[2]])
-}
-
-draw.MVN <- function(N, prop.params) {
-    rmvnorm(N, mean=prop.params[[1]],
-            sigma = prop.params[[2]]
-            )
-}
-
 ```
+
+# Running the algorithm
+
+The first phase of the algorithm is to find the posterior mode $\theta^*$.  The Hessian at the mode is $H^*$.
+
 
 ```{r}
 theta0 <- c( mean(x), log(sd(x)) )
@@ -68,39 +73,57 @@ fit0 <- optim(theta0,
 theta.star <- fit0$par ## posterior mode
 H.star <- fit0$hessian
 H.star.inverse <- solve(fit0$hessian)
-log.c <- logPosterior(theta.star)
-
+log.c1 <- logPosterior(theta.star)
 ```
 
-Proposal draws
+Next, we sample $M$ values from a proposal distribution $g(\theta)$.  We will use a multivariate normal distribution with mean $\theta^*$, and covariance $sH^{*-1}$. We set $s=2.2$, which is the smallest value that generates a valid proposal.
+
+The `sample.GDS` function requires the proposal functions to take distribution parameters as a single list, so we need to write some wrapper functions.
+
 ```{r}
-M <- 10000
-sSq <- 2.2 ## Smallest value such that q(1)=0 and all( logPhi < 0 ).  The value sSq=2.1 fails.
-log.k <- logg(theta.star, prop.params=list(theta.star, sSq*H.star.inverse))
+## proposal functions
+logg <- function(theta, prop.params){
+    dmvnorm(theta,
+            mean=prop.params[[1]], sigma=prop.params[[2]],
+            log=TRUE)
+}
+drawg <- function(N, prop.params) {
+    rmvnorm(N, mean=prop.params[[1]],
+            sigma = prop.params[[2]]
+            )
+}
+M <- 20000
+s <- 5
+log.c2 <- logg(theta.star, prop.params=list(theta.star, s*H.star.inverse))
 
 prop.params <- list(mean=theta.star,
                     sigma = sSq*H.star.inverse
                     )
 
-thetaM <- draw.MVN(M, prop.params)
+thetaM <- drawg(M, prop.params)
 log.post.m <- apply(thetaM, 1, logPosterior)
 log.prop.m <- apply(thetaM, 1, logg, prop.params=prop.params)
-log.phi <- log.post.m - log.prop.m + log.k - log.c
-stopifnot(all(log.phi <= 0)) ## Should be = TRUE
+log.phi <- log.post.m - log.prop.m + log.c2 - log.c1
+valid.scale <- all(log.phi <= 0)
+stopifnot(valid.scale)
 ```
 
-## Should be ok to proceed
+Now, we can sample from the posterior.
 ```{r}
 draws <- sample.GDS(n.draws = 1000,
                     log.phi = log.phi,
                     post.mode = theta.star,
                     fn.dens.post = logPosterior,
                     fn.dens.prop = logg,
-                    fn.draw.prop = draw.MVN,
+                    fn.draw.prop = drawg,
                     prop.params = prop.params,
-                    announce=FALSE
+                    announce=FALSE,
+                    report.freq = 100
                     )
 ```
+
+
+Here's the summary of the posterior samples.
 
 ```{r, collapse=TRUE}
 print("Mean")
@@ -114,8 +137,11 @@ print("Quantiles")
 print(quantile(exp(2*draws$draws[,2]), p=c(.5, .025, .975)))
 print("CI")
 print(var(x)*c(1, ( (length(x)-1)/qchisq(c(.975, .025), length(x)-1))))
+```
 
-  ## Not the same prior, but still vague.  Results should be similar.
+The posterior distribution does not have an analytic form, but we can compare what we get to MCMC results.  The `MCMCregress` function in the *MCMCpack* package applies slightly different priors, but the result is reasonably close.
+
+```{r}
 fit.mcmc <- MCMCregress(x~(1), mcmc=10000)
 summary(fit.mcmc)
 ```
