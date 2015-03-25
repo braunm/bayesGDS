@@ -123,7 +123,7 @@ library(methods, quietly = TRUE)
 library(bayesGDS, quietly = TRUE)
 knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#",
                            message=FALSE, tidy=FALSE, cache = TRUE) #
-knitr::read_chunk("binary_chunks.R")
+knitr::read_chunk("bayesGDS_chunks.R")
 @
 
 

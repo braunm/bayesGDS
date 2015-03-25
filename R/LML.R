@@ -42,7 +42,7 @@ get.LML <- function(counts, log.phi, post.mode, fn.dens.post,
   max.v <- max(v)
   z <- sum((2*seq(1,M)-1) * exp(v-max.v))
 
-  LL <- max.v + log.c2 - log.c1 - log(ar) - 2*log(M) + log(z)
+  LL <- max.v - log.c2 + log.c1 - log(ar) - 2*log(M) + log(z)
   return(as.numeric(LL))
 }
 

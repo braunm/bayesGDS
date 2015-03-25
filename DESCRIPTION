@@ -2,7 +2,7 @@ Package: bayesGDS
 Type: Package
 Title: Scalable Rejection Sampling for Bayesian Hierarchical Models
 Version: 0.6.0.9990
-Date: 2015-03-19
+Date: 2015-03-25
 Authors@R: person(family="Braun", given="Michael", role=c("aut","cre","cph"), email="braunm@smu.edu")
 URL: coxprofs.cox.smu.edu/braunm
 Description: This package contains functions to help users implement the Braun and Damien (2015) rejection sampling algorithm for Bayesian hierarchical models.  The algorithm generates posterior samples in parallel, and is scalable when the individual units are conditionally independent.
@@ -14,6 +14,7 @@ Suggests: sparseHessianFD(>= 0.2.0),
 	  mvtnorm,
        	  trustOptim (>= 0.8.5),
 	  plyr (>= 1.8),
+	  reshape2,
 	  ggplot2,
 	  dplyr,
 	  tidyr,

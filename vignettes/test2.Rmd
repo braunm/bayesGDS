@@ -1,5 +1,5 @@
 ---
-title:  bayesGDS test example
+title:  bayesGDS small test example 2
 author:  Michael Braun
 date:  "`r Sys.Date()`"
 output:
