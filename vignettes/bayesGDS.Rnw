@@ -1,0 +1,5 @@
+%\VignetteIndexEntry{Estimating Bayesian Hierarchical Models using bayesGDS}
+%\VignetteEngine{knitr::knitr}
+\documentclass{article}
+\begin{document}
+\end{document}

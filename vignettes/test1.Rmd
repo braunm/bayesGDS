@@ -113,7 +113,7 @@ We will use a multivariate normal distribution with mean $\theta^*$,
 and covariance $sH^{-1*}$.  The scalar $s$ is a scaling function to
 ensure that the proposal distribution is valid.
 
-We set `r s <- 2.9`, which is the smallest value that generates a
+We set $s=2.9$, which is the smallest value that generates a
 valid proposal. We found this value by adaptive search (i.e., "trial
 and error").  Larger values have no substantial effect on the results, but
 the acceptance rate of the sampler is lower.
@@ -133,8 +133,8 @@ drawg <- function(N, prop.params) {
             )
 }
 M <- 50000
+s <- 2.9
 log.c2 <- logg(theta.star, prop.params=list(theta.star, s*H.star.inverse))
-
 prop.params <- list(mean=theta.star,
                     sigma = s*H.star.inverse
                     )
@@ -162,8 +162,8 @@ draws <- sample.GDS(n.draws = n.draws,
                     )
 dimnames(draws$draws) <- list(draw=1:n.draws, var=c("mu","log.sigma"))
 fr1 <- data.frame(draws$draws) %>%
-  mutate(method="BD", sigma=exp(2*log.sigma)) %>%
-  select(-log.sigma)
+  dplyr::mutate(method="BD", sigma=exp(2*log.sigma)) %>%
+  dplyr::select(-log.sigma)
 ```
 
 

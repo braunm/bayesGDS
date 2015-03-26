@@ -5,10 +5,7 @@
 ^\\.Rhistory$
 ^\\.gitignore$
 ^\\.DS\_Store
-demo/trustOptim*
-demo/X00Index_cran
 README\.md
-inst/old/*
 data-raw/*
 ^README\.Rmd$
 ^README-.*\.png$
@@ -24,3 +21,4 @@ README\.R
 ^.*\\.bbl$
 ^.*\\.prv$
 vignette/cache*
+nobuild

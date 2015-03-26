@@ -1,7 +1,7 @@
 Package: bayesGDS
 Type: Package
 Title: Scalable Rejection Sampling for Bayesian Hierarchical Models
-Version: 0.6.0.9990
+Version: 0.6.1
 Date: 2015-03-25
 Authors@R: person(family="Braun", given="Michael", role=c("aut","cre","cph"), email="braunm@smu.edu")
 URL: coxprofs.cox.smu.edu/braunm
@@ -19,6 +19,7 @@ Suggests: sparseHessianFD(>= 0.2.0),
 	  dplyr,
 	  tidyr,
   	  testthat,
-	  knitr
+	  knitr,
+	  MCMCpack
 Roxygen: list(wrap=TRUE)
 VignetteBuilder: knitr

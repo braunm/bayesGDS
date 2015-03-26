@@ -1,0 +1,11 @@
+Matrix
+Rcpp
+base
+bayesGDS
+doParallel
+foreach
+iterators
+knitr
+sparseHessianFD
+sparseMVN
+trustOptim

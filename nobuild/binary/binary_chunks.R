@@ -32,9 +32,8 @@ print(as(MM,"lgCMatrix"))
 
 
 ##----data
-##data(binary)
-data(binary_test)
-binary <- binary_test
+data(binary_small)
+binary <- binary_small #rename for brevity
 str(binary)
 N <- length(binary[["Y"]])
 k <- NROW(binary[["X"]])

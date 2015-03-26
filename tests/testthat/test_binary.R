@@ -20,9 +20,9 @@ test_that("small", {
         return(res)
     }
 
-    data(binary_test)
+    data(binary_small)
 
-    D <- binary_test
+    D <- binary_small
     N <- length(D[["Y"]])
     k <- NROW(D[["X"]])
     nvars <- as.integer(N*k + k)

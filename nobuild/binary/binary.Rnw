@@ -20,6 +20,9 @@
 \usepackage{setspace}
 \linespread{1.1}
 
+\usepackage[dvipsnames,svgnames,x11names,hyperref]{xcolor}
+\usepackage[colorlinks=true, urlcolor=NavyBlue]{hyperref}
+
 %%make knitr environment line spacing separate from LaTeX
 \renewenvironment{knitrout}{\begin{singlespace}}{\end{singlespace}}
 
@@ -35,7 +38,7 @@
 \newcommand{\filename}[1]{\textit{#1}}
 \newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\variable}[1]{\texttt{#1}}
-\newcommand{\method}[1]{\textbf{#1}}
+\newcommand{\method}[1]{\textsl{#1}}
 
  \newcommand{\Prior}{\pi(\theta)}
  \newcommand{\Post}{\pi(\theta|y)}
@@ -54,7 +57,8 @@
                         dashed=false,
                         maxalphanames=1,%
                         backref=false,%
-			doi=false,%
+			doi=true,%
+                        url=true, %
 			isbn=false,%
                         mergedate=basic,%
                         dateabbrev=true,%
@@ -65,7 +69,7 @@
                         firstinits=false
 			]{biblatex}
 
- \addbibresource{bayesGDS.bib}
+ \addbibresource{../../vignettes/bayesGDS.bib}
 
  \setlength{\bibitemsep}{1em}
 \AtEveryCitekey{\ifciteseen{}{\defcounter{maxnames}{2}}}
@@ -112,7 +116,7 @@
 
 \title{Estimating Bayesian Hierarchical Models using \pkg{bayesGDS}}
 \author{Michael Braun\\Cox School of Business\\Southern Methodist University}
-\date{March 18, 2015}
+\date{March 26, 2015}
 
 \begin{document}
 
@@ -123,7 +127,7 @@ library(methods, quietly = TRUE)
 library(bayesGDS, quietly = TRUE)
 knitr::opts_chunk[["set"]](collapse = FALSE, eval=TRUE, echo=TRUE, comment = "#",
                            message=FALSE, tidy=FALSE, cache = TRUE) #
-knitr::read_chunk("bayesGDS_chunks.R")
+knitr::read_chunk("binary_chunks.R")
 @
 
 
@@ -512,7 +516,7 @@ value.
 Another potential source of poor scalability is in sampling from, and
 computing the log density of, a multivariate normal (MVN)
 distribution. The \func{rmvnorm} and \func{dmvnorm} functions in the
-\pkg{mvtnorm} package \citep{\R_mvtnorm} are inefficient
+\pkg{mvtnorm} package \citep{R_mvtnorm} are inefficient
 in the context of the BD algorithm for three reasons.
 
 \begin{enumerate}

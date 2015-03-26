@@ -1,0 +1,17 @@
+\BOOKMARK [1][-]{section.1}{Some background}{}% 1
+\BOOKMARK [2][-]{subsection.1.1}{Sparse Hessians}{section.1}% 2
+\BOOKMARK [2][-]{subsection.1.2}{Nonlinear optimization}{section.1}% 3
+\BOOKMARK [2][-]{subsection.1.3}{Computing derivatives}{section.1}% 4
+\BOOKMARK [2][-]{subsection.1.4}{High-dimensional MVN distribution}{section.1}% 5
+\BOOKMARK [1][-]{section.2}{Example: hierarchical binary choice}{}% 6
+\BOOKMARK [2][-]{subsection.2.1}{Functions, sample data, and priors for the example}{section.2}% 7
+\BOOKMARK [2][-]{subsection.2.2}{Using sparseHessianFD when the Hessian is unknown}{section.2}% 8
+\BOOKMARK [1][-]{section.3}{Running the algorithm}{}% 9
+\BOOKMARK [2][-]{subsection.3.1}{Finding the posterior mode}{section.3}% 10
+\BOOKMARK [2][-]{subsection.3.2}{Defining proposal functions}{section.3}% 11
+\BOOKMARK [2][-]{subsection.3.3}{Side note: running the algorithm in parallel}{section.3}% 12
+\BOOKMARK [2][-]{subsection.3.4}{Estimating the density of threshold values}{section.3}% 13
+\BOOKMARK [2][-]{subsection.3.5}{Posterior draws via rejection sampling}{section.3}% 14
+\BOOKMARK [2][-]{subsection.3.6}{The output}{section.3}% 15
+\BOOKMARK [1][-]{section.4}{Estimating the log marginal likelihood}{}% 16
+\BOOKMARK [1][-]{section.5}{Future development}{}% 17

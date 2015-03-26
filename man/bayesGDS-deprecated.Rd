@@ -11,7 +11,7 @@
 \usage{
 vech(M)
 
-inv.vech(x)
+inv.vech(y)
 
 logit(p)
 
@@ -22,14 +22,12 @@ log_inv.logit(x)
 \arguments{
   \item{M}{a matrix}
 
-  \item{x}{A vector of conforming length}
+  \item{y}{A vector of conforming length}
 
   \item{p}{A scalar, vector or matrix, where each element
   is between 0 and 1.}
 
-  \item{p}{A scalar, vector or matrix}
-
-  \item{p}{A scalar, vector or matrix}
+  \item{x}{A scalar, vector or matrix}
 }
 \value{
 A vector containing the lower triangle of M, ordered

@@ -6,6 +6,10 @@ NEWS file for bayesGDS package
 
 -  Documentation now created using roxygen2
 
+-  All new vignettes
+
+- New CITATION information
+
 ## VERSION 0.6.0 (December 13, 2013) [first entry in NEWS file]
 
 - This is a complete reworking of the package, with new function names
