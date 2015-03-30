@@ -38,7 +38,7 @@ test_that("small", {
                               data=D, priors=priors)
 
 
-
+?
     f <- FD$fn(start)
     df <- FD$gr(start)
     hess <- FD$hessian(start)

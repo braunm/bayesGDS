@@ -58,12 +58,16 @@
 #' accept-reject algorithm.  Sorted in ascending order.}
 #' \item{log.phi}{A numeric vector.  Value of log.phi for the accepted
 #' draws.}
+#' @references
+#' Braun, Michael and Paul Damien (2015).  Scalable Rejection Sampling for
+#' Bayesian Hierarchical Models. Marketing Science. Articles in Advance.
+#' http://doi.org/10.1287/mksc.2014.0901
 #' @export
 sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
                        fn.dens.prop, fn.draw.prop,
                        prop.params, ...,
                        max.tries=1000000, report.freq=1,
-                       announce=FALSE, thread.id=1, seed=.Random.seed) {                      
+                       announce=FALSE, thread.id=1, seed=.Random.seed) {
     if (any(!is.finite(seed))) {
         stop("Error in sample.GDS:  all values in seed must be finite")
     }
@@ -72,7 +76,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
     nvars <- length(post.mode)
     log.c1 <- fn.dens.post(post.mode, ...)
     log.c2 <- fn.dens.prop(post.mode, prop.params)
-    
+
     v.keep <- vector("numeric",length=n.draws)
     counts <- vector("integer",length=n.draws)
     gt.1 <- vector("integer",length=n.draws)
@@ -80,7 +84,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
     log.post.dens <- vector("numeric",length=n.draws)
     log.prop.dens <- vector("numeric",length=n.draws)
     crit.keep <- vector("numeric",length=n.draws)
-    
+
     remaining.draws <- n.draws
     idx.1 <- 1
     count.idx <- 1
@@ -91,7 +95,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
             cat("thread ",thread.id,"  count ",count.idx,
                 "  remaining draws = ",remaining.draws,"\n")
         }
-        
+
         x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))
         dens.1 <- apply(x,1,fn.dens.post,...)
         dens.1 <- as.vector(dens.1)
@@ -103,7 +107,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
         if (any(crit>0)) {
             cat("bayesGDS warning:  accepted draw(s) with log.phi>0\n")
         }
-        
+
         if (n.keep > 0) {
             idx.range <- idx.1:(idx.1 + n.keep - 1)
             v.keep[idx.range] <- v[ww]
@@ -112,7 +116,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
             log.post.dens[idx.range] <- dens.1[ww]
             log.prop.dens[idx.range] <- dens.2[ww]
             gt.1[idx.range] <- crit[ww]>0
-            crit.keep[idx.range] <- crit[ww]    
+            crit.keep[idx.range] <- crit[ww]
             idx.1 <- idx.1+n.keep
             remaining.draws <- remaining.draws-n.keep
             v <- v[-ww] ## drop v that were successful
@@ -122,7 +126,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
         }
         count.idx <- count.idx+1
     }
-    
+
     res <- list(draws=draws.keep,
                 counts=counts,
                 gt.1=gt.1,
@@ -130,6 +134,6 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
                 log.prop.dens=log.prop.dens,
                 log.thresholds=v.keep,
                 log.phi=crit.keep)
-    
+
     return(res)
 }

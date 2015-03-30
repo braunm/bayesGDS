@@ -93,15 +93,13 @@ inv.logit <- function(x) {
 #' @rdname bayesGDS-deprecated
 #' @export
 log_inv.logit <- function(x) {
+    w.max <- x>=log(.Machine$double.xmax)
+    w.min <- x<=log(.Machine$double.xmin)
+    ww <- !(w.min | w.max)
 
-  w.max <- x>=log(.Machine$double.xmax)
-  w.min <- x<=log(.Machine$double.xmin)
-  ww <- !(w.min | w.max)
-
-  res <- x
-  res[ww] <- x[ww] - log1p(exp(x[ww]))
-  res[w.max] <- 0
-  return(res)
-
+    res <- x
+    res[ww] <- x[ww] - log1p(exp(x[ww]))
+    res[w.max] <- 0
+    return(res)
 }
 
