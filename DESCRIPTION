@@ -20,6 +20,7 @@ Suggests: sparseHessianFD(>= 0.2.0),
 	  tidyr,
   	  testthat,
 	  knitr,
+	  R.rsp,
 	  MCMCpack
 Roxygen: list(wrap=TRUE)
-VignetteBuilder: knitr
+VignetteBuilder: R.rsp

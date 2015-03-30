@@ -1,0 +1,5 @@
+%\VignetteIndexEntry{Small test example 2}
+%\VignetteEngine{knitr::knitr}
+\documentclass{article}
+\begin{document}
+\end{document}
