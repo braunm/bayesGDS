@@ -2,7 +2,7 @@
 % Please edit documentation in R/cutoffs.R
 \name{get.cutoffs}
 \alias{get.cutoffs}
-\title{Draw thresholds for the accept-reject stage of the GDS
+\title{Draw thresholds for the accept-reject stage of the BD
 sampling algorithm.}
 \usage{
 get.cutoffs(log.phi, n.draws)
@@ -26,7 +26,7 @@ from the target posterior distribution.
 \details{
 For use in conjunction with the Braun and Damien (2012)
 Generalized Direct Sampling algorithm.  This is usually not
-called directly, since it is called from the sample.GDS
-function.
+called directly (and, thus, it is not exported), since it
+is called from the sample.GDS function.
 }
 

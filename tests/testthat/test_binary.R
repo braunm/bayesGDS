@@ -11,124 +11,100 @@ test_that("small", {
     set.seed(seed.id*7)
 
     rmvn.sparse.wrap <- function(n.draws, params) {
-        res <- rmvn.sparse(n.draws, params$mean, params$CH, prec=TRUE)
-        return(res)
+        rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
+    }
+    dmvn.sparse.wrap <- function(d, params) {
+        dmvn.sparse(d, params[["mean"]], params[["CH"]], prec=TRUE)
     }
 
-    dmvn.sparse.wrap <- function(d, params) {
-        res <- dmvn.sparse(d, params$mean, params$CH, prec=TRUE)
-        return(res)
-    }
+
 
     data(binary_small)
+    binary <- binary_small #rename for brevity
 
-    D <- binary_small
-    N <- length(D[["Y"]])
-    k <- NROW(D[["X"]])
-    nvars <- as.integer(N*k + k)
-    priors <- list(inv.Sigma = rWishart(1,k+5,diag(k))[,,1],
+    N <- length(binary[["Y"]])
+    k <- NROW(binary[["X"]])
+    q <- k
+    nvars <- as.integer(N*k + q)
+    priors <- list(inv.Sigma = diag(k), ##rWishart(1,k+5,diag(k))[,,1],
                    inv.Omega = diag(k))
+
     start <- rnorm(nvars) ## random starting values
-    f <- binary.f(start, data=D, priors=priors)
+    f <- binary.f(start, data=binary, priors=priors)
+    df <- binary.grad(start, data=binary, priors=priors)
+    d2f <- binary.hess(start, data=binary, priors=priors)
 
-    hs <- drop0(tril(binary.hess(start, data=D, priors=priors)))
+    hs <- Matrix(0, nvars, nvars)
+    for (i in 1:(N + 1)) {
+        rng <- ((i-1)*k+1):(k*i)
+        hs[rng, rng] <- tril(Matrix(1,k,k)) ## lower triangle
+    }
+    hs[N*k + 1:q, 1:(N*k)] <- 1 ## bottom margin
     hsNZ <- Matrix.to.Coord(hs)
+
     FD <- sparseHessianFD.new(start, binary.f, binary.grad,
-                              rows=hsNZ$rows, cols=hsNZ$cols,
-                              data=D, priors=priors)
+                              rows=hsNZ[["rows"]], cols=hsNZ[["cols"]],
+                              data=binary, priors=priors)
 
-
-?
+    ##----usingFD
     f <- FD$fn(start)
     df <- FD$gr(start)
     hess <- FD$hessian(start)
 
-    print("Finding posterior mode")
-    opt <- trust.optim(start, fn=FD$fn,
-                       gr = FD$gr,
-                       hs = FD$hessian,
+    expect_equivalent(hess, d2f)
+
+    opt <- trust.optim(start, fn=FD$fn, gr = FD$gr, hs = FD$hessian,
                        method = "Sparse",
                        control = list(
-                           start.trust.radius=5,
-                           stop.trust.radius = 1e-7,
-                           prec=1e-7,
-                           report.precision=1L,
-                           maxit=500L,
-                           preconditioner=1L,
+                           start.trust.radius=5, stop.trust.radius = 1e-7,
+                           prec=1e-7, report.precision=1,
+                           maxit=500, preconditioner=1,
                            function.scale.factor=-1,
-                           report.freq=50L
-                       )
+                           report.freq = 10000
+                           )
                        )
 
-    post.mode <- opt$solution
-    hess <- opt$hessian
-    var.names <- names(post.mode)
+    theta.star <- opt[["solution"]]
+    hess <- opt[["hessian"]]
 
-    n.draws <- 300  ## total number of draws needed
+    ##----propParams
+    scale <- .96
+    chol.hess <- Cholesky(-scale*hess)
+    prop.params <- list(mean = theta.star, CH = chol.hess)
+
     M <- 10000  ## proposal draws
-    max.tries <- 100000  ## to keep sample.GDS from running forever
-    ds.scale <- .99  ## scaling factor for proposal density
-
-    chol.hess <- Cholesky(-ds.scale*hess)
-
-    prop.params <- list(mean = post.mode,
-                        CH = chol.hess
-                        )
-
-    log.c1 <- opt$fval
-    log.c2 <- dmvn.sparse.wrap(post.mode, prop.params)
-
-    cat("Collecting GDS Proposal Draws\n")
+    log.c1 <- FD$fn(theta.star)
+    log.c2 <- dmvn.sparse.wrap(theta.star, prop.params)
     draws.m <- as(rmvn.sparse.wrap(M,prop.params),"matrix")
-    log.post.m <- plyr::aaply(draws.m, 1, FD$fn, .parallel=FALSE)
+    log.post.m <- plyr::aaply(draws.m, 1, FD$fn)
     log.prop.m <- dmvn.sparse.wrap(draws.m, params=prop.params)
-    log.phi <- log.post.m - log.prop.m +log.c2 - log.c1
+    log.phi <- log.post.m - log.prop.m + log.c2 - log.c1
+    valid.scale <- all(log.phi <= 0)
+    expect_true(valid.scale)
 
 
-    invalid.scale <- any(log.phi>0)
-    cat("Are any log.phi > 0?  ",invalid.scale,"\n")
+##----sampleGDS_serial
+    n.draws <- 3  ## total number of draws needed
+    max.tries <- 100000  ## to keep sample.GDS from running forever
+    draws <- sample.GDS(n.draws = n.draws,
+                        log.phi = log.phi,
+                        post.mode = theta.star,
+                        fn.dens.post = FD$fn,
+                        fn.dens.prop = dmvn.sparse.wrap,
+                        fn.draw.prop = rmvn.sparse.wrap,
+                        prop.params = prop.params,
+                        report.freq = 1, announce=TRUE)
 
-    expect_false(invalid.scale)
+    expect_true(all(draws$gt.1==0))
+    expect_false(any(is.na(draws$counts)))
 
-    if (!invalid.scale) {
-
-        cat("Generating DS draws - accept-reject phase\n")
-
-        draws <- sample.GDS(n.draws = n.draws,
-                            log.phi = log.phi,
-                            post.mode = post.mode,
-                            fn.dens.post = FD$fn,
-                            fn.dens.prop = dmvn.sparse.wrap,
-                            fn.draw.prop = rmvn.sparse.wrap,
-                            prop.params = prop.params,
-                            report.freq = 50,
-                            thread.id = 1,
-                            announce=FALSE)
-
-
-        expect_false(any(is.na(draws$counts)))
-
-
-        if (any(is.na(draws$counts))) {
-            LML <- NA
-        } else {
-            LML <- get.LML(counts=draws$counts,
-                           log.phi=log.phi,
-                           post.mode=post.mode,
-                           fn.dens.post= FD$fn,
-                           fn.dens.prop=dmvn.sparse.wrap,
-                           prop.params=prop.params)
-        }
-        ## Section H:  Compute log marginal likelihood
-
-        acc.rate <- 1/mean(draws$counts)
-
-        dimnames(draws$draws) <- list(iteration=1:NROW(draws$draws),
-                                      variable=var.names)
-
-        draws$LML <- LML
-        draws$acc.rate <- acc.rate
-    }
-
+    LML <- get.LML(counts=draws$counts,
+                   log.phi=log.phi,
+                   post.mode=theta.star,
+                   fn.dens.post= FD$fn,
+                   fn.dens.prop=dmvn.sparse.wrap,
+                   prop.params=prop.params)
+    expect_true(is.finite(LML))
+    expect_true(LML<0)
 
 })

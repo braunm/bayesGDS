@@ -85,4 +85,10 @@ vector.  Value of log.phi for the accepted draws.}
 Runs the accept-reject phase of the Braun and Damien (2015)
 algorithm for scalable rejection sampling.
 }
+\references{
+Braun, Michael and Paul Damien (2015).  Scalable Rejection
+Sampling for Bayesian Hierarchical Models. Marketing
+Science. Articles in Advance.
+http://doi.org/10.1287/mksc.2014.0901
+}
 

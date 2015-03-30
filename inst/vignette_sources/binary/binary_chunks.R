@@ -153,7 +153,7 @@ max.tries <- 100000  ## to keep sample.GDS from running forever
 if (!run.par) {
     draws <- sample.GDS(n.draws = n.draws,
                         log.phi = log.phi,
-                        theta.star = theta.star,
+                        post.mode = theta.star,
                         fn.dens.post = FD$fn,
                         fn.dens.prop = dmvn.sparse.wrap,
                         fn.draw.prop = rmvn.sparse.wrap,

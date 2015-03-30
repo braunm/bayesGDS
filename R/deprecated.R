@@ -6,7 +6,7 @@
 
 ## Place to hold functions that will not be maintained in the future
 
-#' @name bayesGDS-deprecated
+#' @name Deprecated
 #' @aliases vech inv.vech
 #' @title Deprecated functions
 #' @description These functions were in earlier versions, but will no
@@ -18,7 +18,7 @@ NULL
 #' @title vech operator on a square matrix
 #' @param M a matrix
 #' @return A vector containing the lower triangle of M, ordered column-wise.
-#' @rdname bayesGDS-deprecated
+#' @rdname Deprecated
 #' @export
 vech <- function( M )
 {
@@ -32,10 +32,7 @@ vech <- function( M )
 #' @title inverse vech operator on a vector
 #' @param y A vector of conforming length
 #' @return A k x k lower triangular matrix
-#' @details Returns a lower triangular matrix, with elements
-#' determined by x. x must be a vector of length k(k+1)/2, where k is
-#' the number of rows (and columns) of the result.
-#' @rdname bayesGDS-deprecated
+#' @rdname Deprecated
 #' @export
 inv.vech <- function( y ) {
 
@@ -58,7 +55,7 @@ inv.vech <- function( y ) {
 #' @param p A scalar, vector or matrix, where each element is between
 #' 0 and 1.
 #' @return result = log(p/(1-p))
-#' @rdname bayesGDS-deprecated
+#' @rdname Deprecated
 #' @export
 logit <- function(p) {
 
@@ -74,7 +71,7 @@ logit <- function(p) {
 #' @title Inverse logit transformation
 #' @param x A scalar, vector or matrix
 #' @return result = exp(x)/(1+exp(x))
-#' @rdname bayesGDS-deprecated
+#' @rdname Deprecated
 #' @export
 inv.logit <- function(x) {
 
@@ -90,7 +87,7 @@ inv.logit <- function(x) {
 
 #' @title Log inverse logit transformation
 #' @return result = log[exp(x)/(1+exp(x))]
-#' @rdname bayesGDS-deprecated
+#' @rdname Deprecated
 #' @export
 log_inv.logit <- function(x) {
     w.max <- x>=log(.Machine$double.xmax)
