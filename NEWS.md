@@ -1,6 +1,10 @@
 NEWS file for bayesGDS package
 
-## VERSION 0.6.1 (development)
+
+## VERSION 0.6.1.990 (development)
+
+
+## VERSION 0.6.1 (March 31, 2015)
 
 -  Added devtools infrastructure.
 
