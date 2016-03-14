@@ -5,19 +5,25 @@ Version: 0.6.1
 Date: 2015-03-30
 Authors@R: person(family="Braun", given="Michael", role=c("aut","cre","cph"), email="braunm@smu.edu")
 URL: coxprofs.cox.smu.edu/braunm
-Description: Functions for implementing the Braun and Damien (2015) rejection sampling algorithm for Bayesian hierarchical models.  The algorithm generates posterior samples in parallel, and is scalable when the individual units are conditionally independent.
+Description: Functions for implementing the Braun and Damien (2015) rejection
+    sampling algorithm for Bayesian hierarchical models. The algorithm generates
+    posterior samples in parallel, and is scalable when the individual units are
+    conditionally independent.
 License: MPL (== 2.0)
-Depends: R (>= 3.1.2),
-	 Matrix (>= 1.1.5)
-Suggests: sparseHessianFD(>= 0.2.0),
-	  sparseMVN(>= 0.2.0),
-	  mvtnorm,
-       	  trustOptim (>= 0.8.5),
-	  plyr (>= 1.8),
-	  dplyr,
-  	  testthat,
-	  knitr,
-	  R.rsp,
-	  MCMCpack
+Depends:
+    R (>= 3.1.2),
+    Matrix (>= 1.1.5)
+Suggests:
+    sparseHessianFD(>= 0.2.0),
+    sparseMVN(>= 0.2.0),
+    mvtnorm,
+    trustOptim (>= 0.8.5),
+    plyr (>= 1.8),
+    dplyr,
+    testthat,
+    knitr,
+    R.rsp,
+    MCMCpack
 Roxygen: list(wrap=TRUE)
 VignetteBuilder: R.rsp
+RoxygenNote: 5.0.1
