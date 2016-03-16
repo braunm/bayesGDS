@@ -10,7 +10,6 @@ data-raw/*
 ^README\.Rmd$
 ^README-.*\.png$
 README\.R
-^NEWS\.md$
 ^cran-comments\.md$
 ^.*\\.aux$
 ^.*\\.bcf$
