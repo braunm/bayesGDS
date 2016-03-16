@@ -69,7 +69,7 @@
                         firstinits=false
 			]{biblatex}
 
- \addbibresource{../bayesGDS.bib}
+ \addbibresource{./inst/vignette_sources/bayesGDS.bib}
 
  \setlength{\bibitemsep}{1em}
 \AtEveryCitekey{\ifciteseen{}{\defcounter{maxnames}{2}}}
@@ -116,7 +116,7 @@
 
 \title{Estimating Bayesian Hierarchical Models using \pkg{bayesGDS}}
 \author{Michael Braun\\Cox School of Business\\Southern Methodist University}
-\date{March 26, 2015}
+\date{March 16, 2016}
 
 \begin{document}
 
@@ -485,7 +485,7 @@ and column indices of the non-zero elements of the lower triangle of
 the Hessian.  The \class{sparseHessianFD} object contains member
 functions not only for the log density and the gradient, but also for
 the sparse Hessian, as a \class{dgCMatrix}
-object.  See the \pkg{sparseHessianFD} documentation and vignette for
+object.  See the \pkg{sparseHessianFD} package documentation and vignette for
 more details.
 
 The \class{sparseHessianFD} class is useful for
@@ -617,10 +617,9 @@ have predictable sparsity patterns. The
 \pkg{sparseHessianFD} package simplifies numerical approximation of a
 sparse Hessian, and should be used if exact
 methods are unavailable (see Section \ref{sec:derivatives}.   The
-\func{sparseHessianFD.new} function is a wrapper around the
-constructor for the \class{sparseHessianFD} class, and returns an
-object of that class.  But before calling \func{sparseHessianFD.new},
-we need to get the sparsity pattern of the lower triangle of the
+\func{sparseHessianFD} function initializes an object of the
+\class{sparseHessianFD} class. This initializer requires
+the sparsity pattern of the lower triangle of the
 Hessian of $\log\Dy$. The sparsity pattern is defined
 by integer vectors of the row and column indices of the nonzero elements.
 
@@ -628,7 +627,7 @@ A straightforward
 way to generate the sparsity pattern is to build a sparse integer or logical matrix,
 and then use the \func{Matrix.to.Coord} function from
 \pkg{sparseHessianFD}.  The \func{Matrix.to.Coord} function returns a
-list of two integer vectors that can be passed to \func{sparseHessianFD.new}.
+list of two integer vectors that can be passed to \func{sparseHessianFD}.
 
 <<hessStruct>>=
 @

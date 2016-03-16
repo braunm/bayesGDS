@@ -76,7 +76,7 @@ str(hsNZ)
 ## str(hsNZ)
 
 ##----sparseHessianFD
-FD <- sparseHessianFD.new(start, binary.f, binary.grad,
+FD <- sparseHessianFD(start, binary.f, binary.grad,
                           rows=hsNZ[["rows"]], cols=hsNZ[["cols"]],
                           data=binary, priors=priors)
 
