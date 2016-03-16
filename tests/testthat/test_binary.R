@@ -7,8 +7,7 @@ test_that("small", {
     require(sparseMVN)
     require(trustOptim)
 
-    seed.id <- 123
-    set.seed(seed.id*7)
+    set.seed(123)
 
     rmvn.sparse.wrap <- function(n.draws, params) {
         rmvn.sparse(n.draws, params[["mean"]], params[["CH"]], prec=TRUE)
@@ -42,9 +41,9 @@ test_that("small", {
     hs[N*k + 1:q, 1:(N*k)] <- 1 ## bottom margin
     hsNZ <- Matrix.to.Coord(hs)
 
-    FD <- sparseHessianFD.new(start, binary.f, binary.grad,
-                              rows=hsNZ[["rows"]], cols=hsNZ[["cols"]],
-                              data=binary, priors=priors)
+    FD <- sparseHessianFD(start, binary.f, binary.grad,
+                          rows=hsNZ[["rows"]], cols=hsNZ[["cols"]],
+                          data=binary, priors=priors)
 
     ##----usingFD
     f <- FD$fn(start)

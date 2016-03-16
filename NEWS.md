@@ -1,6 +1,11 @@
 NEWS file for bayesGDS package
 
-## VERSION 0.6.1 (development)
+## VERSION 0.6.2
+
+- Patch.  Changes in tests and vignettes to enable compatibility with
+  sparseHessianFD 0.3.0.
+
+## VERSION 0.6.1 (March 31, 2015)
 
 -  Added devtools infrastructure.
 
@@ -8,7 +13,7 @@ NEWS file for bayesGDS package
 
 -  All new vignettes
 
-- New CITATION information
+- New CITATION information
 
 ## VERSION 0.6.0 (December 13, 2013) [first entry in NEWS file]
 

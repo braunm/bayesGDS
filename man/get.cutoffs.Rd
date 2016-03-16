@@ -8,23 +8,25 @@ sampling algorithm.}
 get.cutoffs(log.phi, n.draws)
 }
 \arguments{
-  \item{log.phi}{Vector of log.phi from the proposal draws.
-  All must be non-positive.} \item{n.draws}{an integer. number
-  of draws to be taken from the target posterior.}
+\item{log.phi}{Vector of log.phi from the proposal draws.  All must
+be non-positive.}
+
+\item{n.draws}{an integer.  number of draws to be taken from the
+target posterior.}
 }
 \value{
 a numeric vector for v = -log.u (the thresholds for the
 accept-reject stage).
 }
 \description{
-Returns a vector of log(u), where u is the threshold to
-determine if a proposal draw should be accepted as a draw
-from the target posterior distribution.
+Returns a vector of log(u), where u is the threshold
+to determine if a proposal draw should be accepted as a draw from
+the target posterior distribution.
 }
 \details{
 For use in conjunction with the Braun and Damien (2012)
-Generalized Direct Sampling algorithm. This is usually not
-called directly (and, thus, it is not exported), since it is
-called from the sample.GDS function.
+Generalized Direct Sampling algorithm.  This is usually not called
+directly (and, thus, it is not exported), since it is called from
+the sample.GDS function.
 }
 

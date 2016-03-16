@@ -14,12 +14,11 @@ binary.grad(P, data, priors)
 binary.hess(P, data, priors)
 }
 \arguments{
-  \item{P}{Numeric vector of length (N+1)*k. First N*k
-  elements are heterogeneous coefficients. The remaining
-  k elements are population parameters.} \item{data}
-  {List of data matrices Y and X, and choice count integer
-  T} \item{priors}{List of named matrices inv.Omega and
-  inv.Sigma}
+\item{P}{Numeric vector of length (N+1)*k.  First N*k elements are heterogeneous coefficients. The remaining k elements are population parameters.}
+
+\item{data}{List of data matrices Y and X, and choice count integer T}
+
+\item{priors}{List of named matrices inv.Omega and inv.Sigma}
 }
 \value{
 Log posterior density, gradient and Hessian.

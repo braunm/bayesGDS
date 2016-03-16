@@ -8,25 +8,30 @@ get.LML(counts, log.phi, post.mode, fn.dens.post, fn.dens.prop, prop.params,
   ...)
 }
 \arguments{
-  \item{counts}{vector of counts of the number of proposals
-  that were generated before accepting a draw. Length of
-  vector is equal to the number of draws from the posterior.
-  If the first proposal for a particular posterior draw
-  is accepted, that count is a 1.} \item{log.phi}{Numeric
-  vector of draws of log.phi from the proposal draws.}
-  \item{post.mode}{The posterior mode.} \item{fn.dens.post}
-  {Function that returns the log posterior density. Function
-  should take the parameter vector as the first argument.
-  Additional arguments are passed as ...} \item{fn.dens.prop}
-  {Function that returns the log density of the proposal
-  distribution. The first argument of the function should take
-  either a vector or a matrix. If the argument is a matrix,
-  each row is considered a sample. Additional parameters
-  are passed as a list, prop.params.} \item{prop.params}
-  {Object (list or vector) to be passed to both fn.dens.prop
-  and fn.draw.prop.Contains parameters for the proposal
-  distribution. See details.} \item{...}{Additional parameters
-  to be passed to fn.dens.post}
+\item{counts}{vector of counts of the number of proposals that were
+generated before accepting a draw.  Length of vector is equal to
+the number of draws from the posterior.  If the first proposal for
+a particular posterior draw is accepted, that count is a 1.}
+
+\item{log.phi}{Numeric vector of draws of log.phi from the proposal draws.}
+
+\item{post.mode}{The posterior mode.}
+
+\item{fn.dens.post}{Function that returns the log posterior
+density.  Function should take the parameter vector as the first
+argument.  Additional arguments are passed as ...}
+
+\item{fn.dens.prop}{Function that returns the log density of the
+proposal distribution. The first argument of the function should
+take either a vector    or a matrix.  If the argument is a matrix,
+each row is considered a sample.  Additional parameters are passed
+as a list, prop.params.}
+
+\item{prop.params}{Object (list or vector) to be passed to both
+fn.dens.prop and fn.draw.prop.Contains parameters for the proposal
+distribution.  See details.}
+
+\item{...}{Additional parameters to be passed to fn.dens.post}
 }
 \value{
 The estimate log marginal likelihood of the model.
