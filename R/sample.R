@@ -68,6 +68,7 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
                        prop.params, ...,
                        max.tries=1000000, report.freq=1,
                        announce=FALSE, thread.id=1, seed=.Random.seed) {
+    library(sparseMVN)
     if (any(!is.finite(seed))) {
         stop("Error in sample.GDS:  all values in seed must be finite")
     }
@@ -137,3 +138,65 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
 
     return(res)
 }
+
+sample.GDS.parallel <- function(n.draws, log.phi, post.mode, fn.dens.post,
+                                fn.dens.prop, fn.draw.prop,
+                                prop.params, ...,
+                                max.tries, report.freq,
+                                announce, seed, nodes=1, threadspernode=1) {
+    if ((nodes > 0) & (threadspernode > 0)) {
+       if ((nodes == 1) & (threadspernode == 1)) {
+          draws <- sample.GDS(n.draws = n.draws,
+              max.tries = max.tries,
+              log.phi = log.phi,
+              post.mode = post.mode,
+              fn.dens.post = fn.dens.post,
+              fn.dens.prop = fn.dens.prop,
+              fn.draw.prop = fn.draw.prop,
+              prop.params = prop.params,
+              report.freq = report.freq,
+              seed = seed)
+       } else if (threadspernode >= 1) {
+          balance <- 1
+          cores <- nodes * threadspernode
+          n.batch <- cores * balance
+          if (nodes == 1) {
+             library(doParallel)
+             registerDoParallel(cores = cores)
+          } else if (nodes > 1) {
+             library(doMPI)
+             cl <- startMPIcluster(count = cores)
+             exportDoMPI(cl, envir=.GlobalEnv)
+             registerDoMPI(cl)
+          }
+          batch.size <- ceiling(n.draws / n.batch)
+          batch.max  <- ceiling(max.tries / n.batch)
+          draws.list <- foreach(i=1:n.batch, .inorder=FALSE, .export=c("sample.GDS")) %dopar% { sample.GDS(
+              n.draws = batch.size,
+              max.tries = batch.max,
+              log.phi = log.phi,
+              post.mode = post.mode,
+              fn.dens.post = fn.dens.post,
+              fn.dens.prop = fn.dens.prop,
+              fn.draw.prop = fn.draw.prop,
+              prop.params = prop.params,
+              report.freq = report.freq,
+              seed=as.integer(seed * i),
+              thread.id = i)
+          }
+          draws <- Reduce(function(x,y) Map(rbind,x,y), draws.list)
+          if (nodes > 1) {
+             closeCluster(cl)
+          }
+          return(draws)
+       } 
+    } else {
+       print("Error: Node and thread count must be positive integers.")
+       quit()
+    }
+}
+
+
+
+
+
