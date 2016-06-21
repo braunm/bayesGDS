@@ -63,6 +63,70 @@
 #' Bayesian Hierarchical Models. Marketing Science. Articles in Advance.
 #' http://doi.org/10.1287/mksc.2014.0901
 #' @export
+
+draw.GDS <- function(n.draws, count.idx, max.tries, prop.params, fn.dens.pst,
+    log.c1, log.c2, v, v.keep, counts, draws.keep, log.post.dens,
+    log.prop.dens, gt.1, crit.keep) {
+    require(sparseMVN)
+    remaining.draws <- n.draws
+    while((remaining.draws > 0) & (count.idx <= max.tries)) {
+        x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))
+        dens.1 <- apply(x,1,fn.dens.post,...)
+        dens.1 <- as.vector(dens.1)
+        dens.2 <- fn.dens.prop(x,prop.params)
+        dens.2 <- as.vector(dens.2)
+        crit <- dens.1 - dens.2 - log.c1 + log.c2
+        ww <- which(-v < crit)
+        n.keep <- length(ww)
+        if (n.keep > 0) {
+            idx.range <- 1:(1 + n.keep - 1)
+            v.keep[idx.range] <- v[ww]
+            counts[idx.range] <- count.idx
+            draws.keep[idx.range,] <- x[ww,]
+            log.post.dens[idx.range] <- dens.1[ww]
+            log.prop.dens[idx.range] <- dens.2[ww]
+            gt.1[idx.range] <- crit[ww] > 0
+            crit.keep[idx.range] <- crit[ww]
+            remaining.draws <- remaining.draws - n.keep
+            v <- v[-ww]
+        rdsmlock("countlock")
+        count.idx <- count.idx + 1
+        rdsmlock("countlock")
+    }
+    invisible(0)
+}
+
+sample.GDS.rdsm <- function(n.draws, log.phi, post.mode, fn.dens.post,
+    fn.dens.prop, fn.draw.prop, prop.params, ..., max.tries=1000000,
+    report.freq=1, announce=FALSE, thread.id=1, seed=.Random.seed) {
+    library(parallel)
+    library(rdms)
+    mgrinit(cl)
+    set.seed(seed)
+    v <- get.cutoffs(log.phi, n.draws)
+    nvars <- length(post.mode)
+    log.c1 <- fn.dens.post(post.mode, ...)
+    log.c2 <- fn.dens.prop(post.mode, prop.params)
+    mgrmakevar(cl, "draws.keep", n.draws, nvars)
+    mgrmakevar(cl, "counts", n.draws, 1, "integer")
+    mgrmakevar(cl, "gt.1", n.draws, 1, "integer")
+    mgrmakevar(cl, "log.post.dens", n.draws, 1, "numeric")
+    mgrmakevar(cl, "log.prop.dens", n.draws, 1, "numeric")
+    mgrmakevar(cl, "v.keep", n.draws, 1, "numeric")
+    mgrmakevar(cl, "crit.keep", n.draws, 1, "numeric")
+    mgrmakevar(cl, "count.idx", n.draws, 1, "integer")
+    mgrmakelock(cl, "countlock")
+    count.idx <- 1
+    clusterExport(cl,"draw.GDS")
+    clusterEvalQ(cl,rdsmpdist(draws.keep, counts, gt.1, log.post.dens,
+        v.keep, crit.keep))
+    res <- list(draws = draws.keep, counts = counts, gt.1 = gt.1,
+        log.post.dens = log.post.dens, log.prop.dens = log.prop.dens,
+        log.thresholds = v.keep, log.phi = crit.keep)
+    stoprdsm(cl)
+    return(res)
+}
+
 sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
                        fn.dens.prop, fn.draw.prop,
                        prop.params, ...,
