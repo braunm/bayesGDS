@@ -1,8 +1,8 @@
 Package: bayesGDS
 Type: Package
 Title: Scalable Rejection Sampling for Bayesian Hierarchical Models
-Version: 0.6.2
-Date: 2016-03-16
+Version: 0.7.0
+Date: 2016-06-19
 Authors@R: person(family="Braun", given="Michael", role=c("aut","cre","cph"), email="braunm@smu.edu")
 URL: coxprofs.cox.smu.edu/braunm
 Maintainer: Michael Braun <braunm@smu.edu>
