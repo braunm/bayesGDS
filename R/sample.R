@@ -63,12 +63,9 @@
 #' Bayesian Hierarchical Models. Marketing Science. Articles in Advance.
 #' http://doi.org/10.1287/mksc.2014.0901
 #' @export
-sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
-                       fn.dens.prop, fn.draw.prop,
-                       prop.params, ...,
-                       max.tries=1000000, report.freq=1,
-                       announce=FALSE, thread.id=1, seed=.Random.seed) {
-    library(sparseMVN)
+sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post, fn.dens.prop, fn.draw.prop, 
+    prop.params, ..., max.tries = 1e+06, report.freq = 1, announce = FALSE, thread.id = 1, 
+    seed) {
     if (any(!is.finite(seed))) {
         stop("Error in sample.GDS:  all values in seed must be finite")
     }
@@ -77,122 +74,103 @@ sample.GDS <- function(n.draws, log.phi, post.mode, fn.dens.post,
     nvars <- length(post.mode)
     log.c1 <- fn.dens.post(post.mode, ...)
     log.c2 <- fn.dens.prop(post.mode, prop.params)
-
-    v.keep <- vector("numeric",length=n.draws)
-    counts <- vector("integer",length=n.draws)
-    gt.1 <- vector("integer",length=n.draws)
-    draws.keep <- matrix(nrow=n.draws, ncol=nvars)
-    log.post.dens <- vector("numeric",length=n.draws)
-    log.prop.dens <- vector("numeric",length=n.draws)
-    crit.keep <- vector("numeric",length=n.draws)
-
+    
+    v.keep <- vector("numeric", length = n.draws)
+    counts <- vector("integer", length = n.draws)
+    gt.1 <- vector("integer", length = n.draws)
+    draws.keep <- matrix(nrow = n.draws, ncol = nvars)
+    log.post.dens <- vector("numeric", length = n.draws)
+    log.prop.dens <- vector("numeric", length = n.draws)
+    crit.keep <- vector("numeric", length = n.draws)
+    
     remaining.draws <- n.draws
     idx.1 <- 1
     count.idx <- 1
-
-    while((remaining.draws>0) & (count.idx <= max.tries)) {
-
-        if ((count.idx %% report.freq) == 0) {
-            cat("thread ",thread.id,"  count ",count.idx,
-                "  remaining draws = ",remaining.draws,"\n")
+    
+    while ((remaining.draws > 0) & (count.idx <= max.tries)) {
+        
+        if ((count.idx%%report.freq) == 0) {
+            cat("thread ", thread.id, "  count ", count.idx, "  remaining draws = ", 
+                remaining.draws, "\n")
         }
-
+        
         x <- as.matrix(fn.draw.prop(remaining.draws, prop.params))
-        dens.1 <- apply(x,1,fn.dens.post,...)
+        dens.1 <- apply(x, 1, fn.dens.post, ...)
         dens.1 <- as.vector(dens.1)
-        dens.2 <- fn.dens.prop(x,prop.params)
+        dens.2 <- fn.dens.prop(x, prop.params)
         dens.2 <- as.vector(dens.2)
-        crit <- dens.1-dens.2-log.c1+log.c2
+        crit <- dens.1 - dens.2 - log.c1 + log.c2
         ww <- which(-v < crit)
         n.keep <- length(ww)
-        if (any(crit>0)) {
+        if (any(crit > 0)) {
             cat("bayesGDS warning:  accepted draw(s) with log.phi>0\n")
         }
-
+        
         if (n.keep > 0) {
             idx.range <- idx.1:(idx.1 + n.keep - 1)
             v.keep[idx.range] <- v[ww]
             counts[idx.range] <- count.idx
-            draws.keep[idx.range,] <- x[ww,]
+            draws.keep[idx.range, ] <- x[ww, ]
             log.post.dens[idx.range] <- dens.1[ww]
             log.prop.dens[idx.range] <- dens.2[ww]
-            gt.1[idx.range] <- crit[ww]>0
+            gt.1[idx.range] <- crit[ww] > 0
             crit.keep[idx.range] <- crit[ww]
-            idx.1 <- idx.1+n.keep
-            remaining.draws <- remaining.draws-n.keep
-            v <- v[-ww] ## drop v that were successful
+            idx.1 <- idx.1 + n.keep
+            remaining.draws <- remaining.draws - n.keep
+            v <- v[-ww]  ## drop v that were successful
             if (announce) {
-                cat("Sample accepted in thread ",thread.id,". count =  ",count.idx,"\n")
+                cat("Sample accepted in thread ", thread.id, ". count =  ", count.idx, 
+                  "\n")
             }
         }
-        count.idx <- count.idx+1
+        count.idx <- count.idx + 1
     }
-
-    res <- list(draws=draws.keep,
-                counts=counts,
-                gt.1=gt.1,
-                log.post.dens=log.post.dens,
-                log.prop.dens=log.prop.dens,
-                log.thresholds=v.keep,
-                log.phi=crit.keep)
-
+    
+    res <- list(draws = draws.keep, counts = counts, gt.1 = gt.1, log.post.dens = log.post.dens, 
+        log.prop.dens = log.prop.dens, log.thresholds = v.keep, log.phi = crit.keep)
+    
     return(res)
 }
 
-sample.GDS.parallel <- function(n.draws, log.phi, post.mode, fn.dens.post,
-                                fn.dens.prop, fn.draw.prop,
-                                prop.params, ...,
-                                max.tries, report.freq,
-                                announce, seed, nodes=1, threadspernode=1) {
+sample.GDS.parallel <- function(n.draws, log.phi, post.mode, fn.dens.post, fn.dens.prop, 
+    fn.draw.prop, prop.params, ..., max.tries, report.freq, announce, seed = .Random.seed, 
+    nodes = 1, threadspernode = 1) {
     if ((nodes > 0) & (threadspernode > 0)) {
-       if ((nodes == 1) & (threadspernode == 1)) {
-          draws <- sample.GDS(n.draws = n.draws,
-              max.tries = max.tries,
-              log.phi = log.phi,
-              post.mode = post.mode,
-              fn.dens.post = fn.dens.post,
-              fn.dens.prop = fn.dens.prop,
-              fn.draw.prop = fn.draw.prop,
-              prop.params = prop.params,
-              report.freq = report.freq,
-              seed = seed)
-       } else if (threadspernode >= 1) {
-          balance <- 1
-          cores <- nodes * threadspernode
-          n.batch <- cores * balance
-          if (nodes == 1) {
-             library(doParallel)
-             registerDoParallel(cores = cores)
-          } else if (nodes > 1) {
-             library(doMPI)
-             cl <- startMPIcluster(count = cores)
-             exportDoMPI(cl, envir=.GlobalEnv)
-             registerDoMPI(cl)
-          }
-          batch.size <- ceiling(n.draws / n.batch)
-          batch.max  <- ceiling(max.tries / n.batch)
-          draws.list <- foreach(i=1:n.batch, .inorder=FALSE, .export=c("sample.GDS")) %dopar% { sample.GDS(
-              n.draws = batch.size,
-              max.tries = batch.max,
-              log.phi = log.phi,
-              post.mode = post.mode,
-              fn.dens.post = fn.dens.post,
-              fn.dens.prop = fn.dens.prop,
-              fn.draw.prop = fn.draw.prop,
-              prop.params = prop.params,
-              report.freq = report.freq,
-              seed=as.integer(seed * i),
-              thread.id = i)
-          }
-          draws <- Reduce(function(x,y) Map(rbind,x,y), draws.list)
-          if (nodes > 1) {
-             closeCluster(cl)
-          }
-          return(draws)
-       } 
+        if ((nodes == 1) & (threadspernode == 1)) {
+            draws <- sample.GDS(n.draws = n.draws, max.tries = max.tries, log.phi = log.phi, 
+                post.mode = post.mode, fn.dens.post = fn.dens.post, fn.dens.prop = fn.dens.prop, 
+                fn.draw.prop = fn.draw.prop, prop.params = prop.params, report.freq = report.freq,
+                seed = seed)
+        } else if (threadspernode >= 1) {
+            balance <- 1
+            cores <- nodes * threadspernode
+            n.batch <- cores * balance
+            if (nodes == 1) {
+                requireNamespace("doParallel", quietly = TRUE)
+                doParallel::registerDoParallel(cores = cores)
+            } else if (nodes > 1) {
+                requireNamespace("doMPI", quietly = TRUE)
+                cl <- doMPI::startMPIcluster(count = cores)
+                doMPI::exportDoMPI(cl, envir = .GlobalEnv)
+                doMPI::registerDoMPI(cl)
+            }
+            batch.size <- ceiling(n.draws/n.batch)
+            batch.max <- ceiling(max.tries/n.batch)
+            draws.list <- doParallel::foreach(i = 1:n.batch, .inorder = FALSE, .export = c("sample.GDS")) %dopar% {
+                  sample.GDS(n.draws = batch.size, max.tries = batch.max, log.phi = log.phi, 
+                    post.mode = post.mode, fn.dens.post = fn.dens.post, fn.dens.prop = fn.dens.prop, 
+                    fn.draw.prop = fn.draw.prop, prop.params = prop.params, report.freq = report.freq, 
+                    seed = as.integer(seed * i), thread.id = i)
+                }
+            draws <- Reduce(function(x, y) Map(rbind, x, y), draws.list)
+            if (nodes > 1) {
+                doMPI::closeCluster(cl)
+            }
+            return(draws)
+        }
     } else {
-       print("Error: Node and thread count must be positive integers.")
-       quit()
+        print("Error: Node and thread count must be positive integers.")
+        quit()
     }
 }
 

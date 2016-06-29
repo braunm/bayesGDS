@@ -85,14 +85,17 @@ test_that("small", {
 ##----sampleGDS_serial
     n.draws <- 3  ## total number of draws needed
     max.tries <- 100000  ## to keep sample.GDS from running forever
-    draws <- sample.GDS(n.draws = n.draws,
-                        log.phi = log.phi,
-                        post.mode = theta.star,
-                        fn.dens.post = FD$fn,
-                        fn.dens.prop = dmvn.sparse.wrap,
-                        fn.draw.prop = rmvn.sparse.wrap,
-                        prop.params = prop.params,
-                        report.freq = 1, announce=TRUE)
+    draws <- sample.GDS.parallel(n.draws = n.draws,
+                                 max.tries = max.tries,
+                                 log.phi = log.phi,
+                                 post.mode = theta.star,
+                                 fn.dens.post = FD$fn,
+                                 fn.dens.prop = dmvn.sparse.wrap,
+                                 fn.draw.prop = rmvn.sparse.wrap,
+                                 prop.params = prop.params,
+                                 seed = 123,
+                                 report.freq = 1, announce=TRUE,
+                                 nodes = 1, threadspernode = 4)
 
     expect_true(all(draws$gt.1==0))
     expect_false(any(is.na(draws$counts)))

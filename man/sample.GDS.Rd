@@ -6,7 +6,7 @@
 \usage{
 sample.GDS(n.draws, log.phi, post.mode, fn.dens.post, fn.dens.prop,
   fn.draw.prop, prop.params, ..., max.tries = 1e+06, report.freq = 1,
-  announce = FALSE, thread.id = 1, seed = .Random.seed)
+  announce = FALSE, thread.id = 1, seed)
 }
 \arguments{
 \item{n.draws}{number of draws to take from the target posterior
