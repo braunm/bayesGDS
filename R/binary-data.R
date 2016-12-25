@@ -19,3 +19,10 @@ NULL
 #' @docType data
 #' @rdname binary-data
 NULL
+
+#' @name binary_test-data
+#' @title Sample simulated data for binary choice model in vignette
+#' @description Another test dataset.  Not sure where it is used.
+#' @docType data
+#' @rdname binary-data
+NULL
