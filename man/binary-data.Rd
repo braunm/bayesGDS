@@ -7,6 +7,8 @@
 \alias{binary_large-data}
 \alias{binary_small}
 \alias{binary_small-data}
+\alias{binary_test}
+\alias{binary_test-data}
 \title{Sample simulated data for binary choice model in vignette}
 \description{
 Simulated data, with $N=20$ and $k=2$.  See vignette.  Generated from
@@ -14,5 +16,7 @@ data-raw/binary.R
 
 Simulated data, with $N=800$ and $k=3$.  See vignette.  Generated from
 data-raw/binary.R
+
+Another test dataset.  Not sure where it is used.
 }
 
