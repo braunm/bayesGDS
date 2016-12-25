@@ -2,8 +2,10 @@ bibentry(bibtype="article",
          title="Scalable Rejection Sampling for Bayesian Hierarchical Models",
          author = c(person("Michael","Braun"),
                     person("Paul","Damien")),
-         year = "2015",
+         year = "2016",
          journal = "Marketing Science",
-         issue = "Articles in Advance",
+         volume = "35",
+	 number = "3",
+	 pages = "427-444",
          doi = "10.1287/mksc.2014.0901"
          )
