@@ -1,5 +1,5 @@
 #' @name binary-data
-#' @aliases binary_small binary_large
+#' @aliases binary_small binary_large binary_test
 NULL
 
 #' @name binary_small-data
