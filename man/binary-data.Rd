@@ -3,11 +3,11 @@
 \docType{data}
 \name{binary-data}
 \alias{binary-data}
-\alias{binary_large}
-\alias{binary_large-data}
 \alias{binary_small}
-\alias{binary_small-data}
+\alias{binary_large}
 \alias{binary_test}
+\alias{binary_small-data}
+\alias{binary_large-data}
 \alias{binary_test-data}
 \title{Sample simulated data for binary choice model in vignette}
 \description{
@@ -19,4 +19,3 @@ data-raw/binary.R
 
 Another test dataset.  Not sure where it is used.
 }
-

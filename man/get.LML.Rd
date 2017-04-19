@@ -39,4 +39,3 @@ The estimate log marginal likelihood of the model.
 \description{
 Estimate log marginal likelihood of model
 }
-

@@ -2,11 +2,13 @@
 % Please edit documentation in R/deprecated.R
 \name{Deprecated}
 \alias{Deprecated}
-\alias{inv.logit}
-\alias{inv.vech}
-\alias{log_inv.logit}
-\alias{logit}
 \alias{vech}
+\alias{inv.vech}
+\alias{vech}
+\alias{inv.vech}
+\alias{logit}
+\alias{inv.logit}
+\alias{log_inv.logit}
 \title{Deprecated functions}
 \usage{
 vech(M)
@@ -45,4 +47,3 @@ These functions were in earlier versions, but will no
 longer be maintained in this package.  They will likely be moved to
 another package a some time.
 }
-

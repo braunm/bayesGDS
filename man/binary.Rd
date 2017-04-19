@@ -29,4 +29,3 @@ Functions for binary choice example in the vignette.
 \details{
 Hessian is sparse, and returned as a dgcMatrix object
 }
-

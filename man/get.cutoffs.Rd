@@ -29,4 +29,3 @@ Generalized Direct Sampling algorithm.  This is usually not called
 directly (and, thus, it is not exported), since it is called from
 the sample.GDS function.
 }
-
